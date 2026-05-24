@@ -42,7 +42,7 @@ class WriteRequest(BaseModel):
 
 def create_app(var: NetVar | None = None) -> FastAPI:
     if var is None:
-        var = NetVar("asdasdasd", NetVarCType.U32, NetVarMode.RW, value=5)
+        var = NetVar("voltage", NetVarCType.U32, NetVarMode.RW, value=5)
     app = FastAPI(title="TSTLAN web platform")
 
     @app.get("/health")
