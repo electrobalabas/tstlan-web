@@ -1,7 +1,19 @@
 [project]
-name = "diploma"
+name = "tstlan"
 version = "0.1.0"
-description = "Add your description here"
+description = "TSTLAN web platform"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.136",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "httpx>=0.28",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
