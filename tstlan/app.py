@@ -1,8 +1,15 @@
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+from tstlan.config import load_settings
+from tstlan.logging_setup import init_logging
+
+settings = load_settings(Path("config.toml"))
+init_logging(settings.log_level)
 
 
 class NetVarCType(StrEnum):
