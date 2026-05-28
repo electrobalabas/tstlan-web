@@ -8,6 +8,13 @@ dependencies = [
     "fastapi[standard]>=0.136",
 ]
 
+[project.scripts]
+tstlan = "tstlan.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [dependency-groups]
 dev = [
     "pytest>=9",

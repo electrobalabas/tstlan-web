@@ -1,15 +1,9 @@
-from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from tstlan.config import load_settings
-from tstlan.logging_setup import init_logging
 from tstlan.models import NetVar, NetVarCType, NetVarMode
-
-settings = load_settings(Path("config.toml"))
-init_logging(settings.log_level)
 
 
 class WriteRequest(BaseModel):
@@ -44,6 +38,3 @@ def create_app(var: NetVar | None = None) -> FastAPI:
         return {"value": var.value}
 
     return app
-
-
-app = create_app()
