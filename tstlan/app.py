@@ -1,39 +1,9 @@
-from enum import StrEnum
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-
-class NetVarCType(StrEnum):
-    U8 = "u8"
-    I8 = "i8"
-    U16 = "u16"
-    I16 = "i16"
-    U32 = "u32"
-    I32 = "i32"
-    F32 = "f32"
-    F64 = "f64"
-
-
-class NetVarMode(StrEnum):
-    R = "r"
-    W = "w"
-    RW = "rw"
-
-
-class NetVar:
-    def __init__(
-        self,
-        name: str,
-        ctype: NetVarCType,
-        mode: NetVarMode,
-        value: int | float = 0,
-    ) -> None:
-        self.name = name
-        self.ctype = ctype
-        self.mode = mode
-        self.value: int | float = value
+from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 
 class WriteRequest(BaseModel):
@@ -42,7 +12,7 @@ class WriteRequest(BaseModel):
 
 def create_app(var: NetVar | None = None) -> FastAPI:
     if var is None:
-        var = NetVar("asdasdasd", NetVarCType.U32, NetVarMode.RW, value=5)
+        var = NetVar("voltage", NetVarCType.U32, NetVarMode.RW, value=5)
     app = FastAPI(title="TSTLAN web platform")
 
     @app.get("/health")
@@ -68,6 +38,3 @@ def create_app(var: NetVar | None = None) -> FastAPI:
         return {"value": var.value}
 
     return app
-
-
-app = create_app()
