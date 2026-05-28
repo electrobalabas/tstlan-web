@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
-from tstlan.app import NetVar, NetVarCType, NetVarMode, create_app
+from tstlan.app import create_app
+from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 
 def test_health() -> None:
