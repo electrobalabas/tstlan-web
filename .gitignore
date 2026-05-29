@@ -23,6 +23,7 @@ site_build
 venv
 docs.zip
 archive.zip
+.diplom
 
 # vim temporary files
 *~
