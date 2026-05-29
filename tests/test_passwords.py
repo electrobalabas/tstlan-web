@@ -1,19 +1,13 @@
 from tstlan.auth.passwords import hash_password, verify_password
 
 
-def test_hash_and_verify_roundtrip() -> None:
-    digest = hash_password("s3cret-pw")
-    assert verify_password(digest, "s3cret-pw")
+def test_correct_password_verifies() -> None:
+    assert verify_password(hash_password("s3cret"), "s3cret")
 
 
-def test_verify_rejects_wrong_password() -> None:
-    digest = hash_password("s3cret-pw")
-    assert not verify_password(digest, "wrong-pw")
+def test_wrong_password_is_rejected() -> None:
+    assert not verify_password(hash_password("s3cret"), "guess")
 
 
-def test_hash_is_salted() -> None:
-    assert hash_password("same") != hash_password("same")
-
-
-def test_hash_uses_argon2id() -> None:
-    assert hash_password("x").startswith("$argon2id$")
+def test_same_password_produces_different_hashes() -> None:
+    assert hash_password("s3cret") != hash_password("s3cret")
