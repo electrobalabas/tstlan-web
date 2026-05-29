@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import event
@@ -20,8 +21,6 @@ def create_engine(database_url: str) -> AsyncEngine:
     url = make_url(database_url)
     kwargs: dict[str, Any] = {}
     if url.get_backend_name() == "sqlite" and url.database in (None, "", ":memory:"):
-        # In-memory SQLite is private to a single connection; pin one shared
-        # connection so the schema created at startup is visible to every session.
         kwargs["poolclass"] = StaticPool
         kwargs["connect_args"] = {"check_same_thread": False}
 
@@ -32,8 +31,6 @@ def create_engine(database_url: str) -> AsyncEngine:
 
 
 def _enable_sqlite_foreign_keys(engine: AsyncEngine) -> None:
-    # SQLite ignores foreign keys unless asked per connection; Postgres enforces
-    # them natively, so this is scoped to the SQLite dialect.
     @event.listens_for(engine.sync_engine, "connect")
     def _set_pragma(dbapi_connection: Any, _record: Any) -> None:
         cursor = dbapi_connection.cursor()
@@ -48,3 +45,14 @@ def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]
 async def init_db(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+def run_migrations(database_url: str) -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parent.parent
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "head")

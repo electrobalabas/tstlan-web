@@ -1,7 +1,10 @@
-.PHONY: test format can-i-push
+.PHONY: test format can-i-push migrate
 
 test:
 	uv run pytest
+
+migrate:
+	uv run alembic upgrade head
 
 format:
 	uv run ruff format .

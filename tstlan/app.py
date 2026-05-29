@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from tstlan.config import Settings
-from tstlan.db import create_engine, create_sessionmaker, init_db
+from tstlan.db import create_engine, create_sessionmaker
 from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 
@@ -27,7 +27,6 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        await init_db(engine)
         try:
             yield
         finally:
