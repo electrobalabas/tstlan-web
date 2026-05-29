@@ -5,7 +5,10 @@ description = "TSTLAN web platform"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "aiosqlite>=0.20",
     "fastapi[standard]>=0.136",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy[asyncio]>=2.0",
 ]
 
 [project.scripts]
