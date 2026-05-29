@@ -9,15 +9,11 @@ from tstlan.db import Base
 
 
 class Role(StrEnum):
-    # Простая ролевая модель сейчас; роли можно расширять (VIEWER, OPERATOR …),
-    # а при необходимости вырастить в полноценный RBAC с таблицей доступов.
     ADMIN = "admin"
     USER = "user"
 
 
-def _utcnow() -> datetime:
-    # Все временные метки храним как наивный UTC — единообразно ведёт себя в
-    # SQLite (timezone=True там игнорируется) и в PostgreSQL.
+def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
@@ -37,7 +33,7 @@ class User(Base):
         default=Role.USER,
     )
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     sessions: Mapped[list["Session"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -51,7 +47,7 @@ class Session(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
     expires_at: Mapped[datetime] = mapped_column()
 
     user: Mapped["User"] = relationship(back_populates="sessions")
