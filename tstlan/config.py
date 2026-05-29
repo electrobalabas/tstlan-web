@@ -10,6 +10,7 @@ class Settings(BaseModel):
     bind_host: str = "127.0.0.1"
     bind_port: int = 8000
     log_level: str = "INFO"
+    database_url: str = "sqlite+aiosqlite:///./tstlan.db"
 
 
 def load_settings(path: Path | None = None) -> Settings:
