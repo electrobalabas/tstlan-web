@@ -34,6 +34,7 @@ async def authenticate(db: AsyncSession, login: str, password: str) -> User | No
 async def create_session(db: AsyncSession, user: User, *, ttl: timedelta) -> Session:
     session = Session(
         token=secrets.token_urlsafe(_TOKEN_BYTES),
+        csrf_token=secrets.token_urlsafe(_TOKEN_BYTES),
         user_id=user.id,
         expires_at=utcnow() + ttl,
     )

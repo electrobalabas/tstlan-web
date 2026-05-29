@@ -20,6 +20,12 @@ async def test_create_user_stores_a_verifiable_hash(session: AsyncSession) -> No
     assert verify_password(user.password_hash, "pw")
 
 
+async def test_create_session_mints_a_csrf_token(session: AsyncSession) -> None:
+    user = await create_user(session, login="alice", password="pw")
+    created = await create_session(session, user, ttl=timedelta(hours=1))
+    assert created.csrf_token
+
+
 async def test_authenticate_accepts_valid_credentials(session: AsyncSession) -> None:
     created = await create_user(session, login="alice", password="pw")
     assert await authenticate(session, "alice", "pw") is created
