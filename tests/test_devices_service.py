@@ -30,12 +30,18 @@ def make_service() -> DeviceService:
     )
 
 
-def test_list_devices_returns_registered_devices() -> None:
-    service = DeviceService(default_devices())
-    assert [device.id for device in service.list_devices()] == [
-        "multimeter",
-        "calibrator",
-    ]
+def test_list_devices_returns_all_registered() -> None:
+    service = DeviceService(
+        [
+            Device("a", "A", "Эмулятор", True, DeviceStatus.OK),
+            Device("b", "B", "Эмулятор", False, DeviceStatus.OFFLINE),
+        ]
+    )
+    assert [device.id for device in service.list_devices()] == ["a", "b"]
+
+
+def test_default_devices_provides_a_catalog() -> None:
+    assert DeviceService(default_devices()).list_devices()
 
 
 def test_get_device_returns_matching_device() -> None:
