@@ -1,9 +1,11 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 from fastapi import FastAPI
 
+from tstlan.auth.middleware import AuthCsrfMiddleware
 from tstlan.config import Settings
 from tstlan.db import create_engine, create_sessionmaker
 
@@ -25,6 +27,15 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
+
+    app.add_middleware(
+        AuthCsrfMiddleware,
+        sessionmaker=sessionmaker,
+        ttl=timedelta(hours=settings.session_ttl_hours),
+        refresh_after=timedelta(hours=settings.session_refresh_hours),
+        allowed_origins=settings.allowed_origins,
+        cookie_secure=settings.cookie_secure,
+    )
 
     @app.get("/health")
     def health() -> dict[str, Any]:

@@ -11,6 +11,13 @@ class Settings(BaseModel):
     bind_port: int = 8000
     log_level: str = "INFO"
     database_url: str = "sqlite+aiosqlite:///./tstlan.db"
+    session_ttl_hours: int = 720
+    session_refresh_hours: int = 24
+    cookie_secure: bool = False
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 
 def load_settings(path: Path | None = None) -> Settings:

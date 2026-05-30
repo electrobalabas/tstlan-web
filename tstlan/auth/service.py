@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from tstlan.auth.models import Role, Session, User, utcnow
 from tstlan.auth.passwords import hash_password, verify_password
@@ -43,11 +44,23 @@ async def create_session(db: AsyncSession, user: User, *, ttl: timedelta) -> Ses
     return session
 
 
-async def lookup_session(db: AsyncSession, token: str) -> User | None:
-    session = await db.get(Session, token)
-    if session is None or session.expires_at <= utcnow():
+async def resolve_session(
+    db: AsyncSession, token: str, *, ttl: timedelta, refresh_after: timedelta
+) -> Session | None:
+    session = (
+        await db.execute(
+            select(Session)
+            .where(Session.token == token)
+            .options(joinedload(Session.user))
+        )
+    ).scalar_one_or_none()
+    now = utcnow()
+    if session is None or session.expires_at <= now:
         return None
-    return await db.get(User, session.user_id)
+    if now - (session.expires_at - ttl) >= refresh_after:
+        session.expires_at = now + ttl
+        await db.commit()
+    return session
 
 
 async def revoke_session(db: AsyncSession, token: str) -> None:
