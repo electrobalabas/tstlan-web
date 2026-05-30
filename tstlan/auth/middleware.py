@@ -59,7 +59,9 @@ class AuthCsrfMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         if token and csrf_token is not None and request.method in SAFE_METHODS:
-            self._set_session_cookie(response, token)
+            set_session_cookie(
+                response, token, ttl=self._ttl, secure=self._cookie_secure
+            )
         return response
 
     def _reject_csrf(self, request: Request, csrf_token: str | None) -> Response | None:
@@ -84,16 +86,23 @@ class AuthCsrfMiddleware(BaseHTTPMiddleware):
             origin = _origin_of(referer) if referer else None
         return origin in self._allowed_origins
 
-    def _set_session_cookie(self, response: Response, token: str) -> None:
-        response.set_cookie(
-            SESSION_COOKIE,
-            token,
-            max_age=int(self._ttl.total_seconds()),
-            httponly=True,
-            samesite="lax",
-            secure=self._cookie_secure,
-            path="/",
-        )
+
+def set_session_cookie(
+    response: Response, token: str, *, ttl: timedelta, secure: bool
+) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=int(ttl.total_seconds()),
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/")
 
 
 def _forbidden(detail: str) -> JSONResponse:

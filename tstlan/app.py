@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from tstlan.auth.middleware import AuthCsrfMiddleware
+from tstlan.auth.routes import router as auth_router
 from tstlan.config import Settings
 from tstlan.db import create_engine, create_sessionmaker
 
@@ -27,6 +28,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
+    app.state.settings = settings
 
     app.add_middleware(
         AuthCsrfMiddleware,
@@ -40,5 +42,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"status": "ok"}
+
+    app.include_router(auth_router)
 
     return app

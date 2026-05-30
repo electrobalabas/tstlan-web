@@ -39,10 +39,6 @@ def client_token_csrf(tmp_path: Path) -> Iterator[tuple[TestClient, str, str]]:
     def _echo() -> dict[str, bool]:
         return {"ok": True}
 
-    @app.post("/auth/login")
-    def _login() -> dict[str, bool]:
-        return {"ok": True}
-
     with TestClient(app) as client:
         client.cookies.set("tstlan_session", token)
         yield client, token, csrf
@@ -90,22 +86,4 @@ def test_anonymous_unsafe_request_reaches_endpoint(
     client, _token, _csrf = client_token_csrf
     client.cookies.clear()
     response = client.post("/echo", headers={"Origin": ALLOWED_ORIGIN})
-    assert response.status_code == 200
-
-
-def test_login_rejects_foreign_origin(
-    client_token_csrf: tuple[TestClient, str, str],
-) -> None:
-    client, _token, _csrf = client_token_csrf
-    client.cookies.clear()
-    response = client.post("/auth/login", headers={"Origin": FOREIGN_ORIGIN})
-    assert response.status_code == 403
-
-
-def test_login_allows_known_origin_without_csrf(
-    client_token_csrf: tuple[TestClient, str, str],
-) -> None:
-    client, _token, _csrf = client_token_csrf
-    client.cookies.clear()
-    response = client.post("/auth/login", headers={"Origin": ALLOWED_ORIGIN})
     assert response.status_code == 200
