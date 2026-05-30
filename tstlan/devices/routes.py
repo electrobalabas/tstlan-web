@@ -1,7 +1,10 @@
+import asyncio
+import json
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from tstlan.devices.models import ValueValidationError
 from tstlan.devices.schemas import (
@@ -18,6 +21,8 @@ from tstlan.devices.service import (
 )
 
 router = APIRouter(tags=["devices"])
+
+_STREAM_INTERVAL_SECONDS = 1.0
 
 
 def get_service(request: Request) -> DeviceService:
@@ -52,6 +57,29 @@ def write_value(
     device_id: str, name: str, payload: WriteValueRequest, service: Service
 ) -> VariableValue:
     return VariableValue.from_var(service.write_value(device_id, name, payload.value))
+
+
+async def value_event_stream(
+    service: DeviceService,
+    device_id: str,
+    *,
+    interval: float = _STREAM_INTERVAL_SECONDS,
+) -> AsyncGenerator[str, None]:
+    while True:
+        snapshot = [
+            VariableValue.from_var(var).model_dump(mode="json")
+            for var in service.read_values(device_id)
+        ]
+        yield f"data: {json.dumps(snapshot)}\n\n"
+        await asyncio.sleep(interval)
+
+
+@router.get("/devices/{device_id}/stream")
+def stream_values(device_id: str, service: Service) -> StreamingResponse:
+    service.get_device(device_id)
+    return StreamingResponse(
+        value_event_stream(service, device_id), media_type="text/event-stream"
+    )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
