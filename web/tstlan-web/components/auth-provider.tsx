@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -16,6 +17,9 @@ import {
   type Identity,
 } from "@/lib/api";
 
+const LOGIN_PATH = "/login";
+const HOME_PATH = "/dashboard";
+
 type AuthState =
   | { status: "loading" }
   | { status: "anonymous" }
@@ -30,6 +34,8 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
   useEffect(() => {
@@ -37,6 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((user) => setState({ status: "authenticated", user }))
       .catch(() => setState({ status: "anonymous" }));
   }, []);
+
+  useEffect(() => {
+    if (state.status === "anonymous" && pathname !== LOGIN_PATH) {
+      router.replace(LOGIN_PATH);
+    }
+    if (state.status === "authenticated" && pathname === LOGIN_PATH) {
+      router.replace(HOME_PATH);
+    }
+  }, [state.status, pathname, router]);
 
   const signIn = useCallback(async (login: string, password: string) => {
     const user = await apiLogin(login, password);
@@ -51,7 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   return (
-    <AuthContext value={{ state, signIn, signOut }}>{children}</AuthContext>
+    <AuthContext value={{ state, signIn, signOut }}>
+      {state.status === "loading" ? <AuthLoading /> : children}
+    </AuthContext>
+  );
+}
+
+function AuthLoading() {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
+        загрузка…
+      </span>
+    </div>
   );
 }
 
