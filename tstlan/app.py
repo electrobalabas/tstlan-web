@@ -6,6 +6,9 @@ from fastapi import FastAPI
 
 from tstlan.config import Settings
 from tstlan.db import create_engine, create_sessionmaker
+from tstlan.devices.routes import register_exception_handlers
+from tstlan.devices.routes import router as devices_router
+from tstlan.devices.service import DeviceService, default_devices
 
 
 def create_app(*, settings: Settings | None = None) -> FastAPI:
@@ -25,9 +28,13 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
+    app.state.devices = DeviceService(default_devices())
 
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"status": "ok"}
+
+    app.include_router(devices_router)
+    register_exception_handlers(app)
 
     return app
