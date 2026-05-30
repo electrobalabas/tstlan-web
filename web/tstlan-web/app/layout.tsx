@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AuthProvider } from "@/components/auth-provider";
 import { SiteHeader } from "@/components/site-header";
 
 const geistSans = Geist({
@@ -30,8 +31,10 @@ export default function RootLayout({
       className={cn("h-full antialiased", geistSans.variable, jetbrainsMono.variable)}
     >
       <body className="min-h-full flex flex-col">
-        <SiteHeader />
-        <main className="flex flex-1 flex-col">{children}</main>
+        <AuthProvider>
+          <SiteHeader />
+          <main className="flex flex-1 flex-col">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );
