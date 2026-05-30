@@ -43,7 +43,12 @@ async def test_deleting_user_deletes_their_sessions(session: AsyncSession) -> No
     session.add(user)
     await session.commit()
     session.add(
-        Session(token="tok", user_id=user.id, expires_at=utcnow() + timedelta(hours=1))
+        Session(
+            token="tok",
+            csrf_token="csrf",
+            user_id=user.id,
+            expires_at=utcnow() + timedelta(hours=1),
+        )
     )
     await session.commit()
 

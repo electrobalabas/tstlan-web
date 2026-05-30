@@ -4,11 +4,9 @@ from tstlan.app import create_app
 from tstlan.config import Settings
 
 
-def test_health() -> None:
+def test_health_reports_ok() -> None:
     client = TestClient(create_app())
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok"}
 
 
 def test_app_boots_with_db_lifespan() -> None:

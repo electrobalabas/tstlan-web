@@ -1,10 +1,13 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 from fastapi import FastAPI
 
+from tstlan.auth.middleware import AuthCsrfMiddleware
+from tstlan.auth.routes import router as auth_router
 from tstlan.config import Settings
 from tstlan.db import create_engine, create_sessionmaker
 from tstlan.devices.routes import register_exception_handlers
@@ -31,13 +34,24 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
+    app.state.settings = settings
     app.state.devices = DeviceService(default_devices())
     app.state.shutdown_event = shutdown_event
+
+    app.add_middleware(
+        AuthCsrfMiddleware,
+        sessionmaker=sessionmaker,
+        ttl=timedelta(hours=settings.session_ttl_hours),
+        refresh_after=timedelta(hours=settings.session_refresh_hours),
+        allowed_origins=settings.allowed_origins,
+        cookie_secure=settings.cookie_secure,
+    )
 
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"status": "ok"}
 
+    app.include_router(auth_router)
     app.include_router(devices_router)
     register_exception_handlers(app)
 
