@@ -29,7 +29,12 @@ def get_service(request: Request) -> DeviceService:
     return request.app.state.devices
 
 
+def get_shutdown_event(request: Request) -> asyncio.Event:
+    return request.app.state.shutdown_event
+
+
 Service = Annotated[DeviceService, Depends(get_service)]
+ShutdownEvent = Annotated[asyncio.Event, Depends(get_shutdown_event)]
 
 
 @router.get("/devices")
@@ -62,23 +67,34 @@ def write_value(
 async def value_event_stream(
     service: DeviceService,
     device_id: str,
+    stop: asyncio.Event,
     *,
     interval: float = _STREAM_INTERVAL_SECONDS,
 ) -> AsyncGenerator[str, None]:
-    while True:
+    while not stop.is_set():
         snapshot = [
             VariableValue.from_var(var).model_dump(mode="json")
             for var in service.read_values(device_id)
         ]
         yield f"data: {json.dumps(snapshot)}\n\n"
-        await asyncio.sleep(interval)
+        await _wait_or_stop(stop, interval)
+
+
+async def _wait_or_stop(stop: asyncio.Event, interval: float) -> None:
+    try:
+        await asyncio.wait_for(stop.wait(), timeout=interval)
+    except TimeoutError:
+        pass
 
 
 @router.get("/devices/{device_id}/stream")
-def stream_values(device_id: str, service: Service) -> StreamingResponse:
+def stream_values(
+    device_id: str, service: Service, stop: ShutdownEvent
+) -> StreamingResponse:
     service.get_device(device_id)
     return StreamingResponse(
-        value_event_stream(service, device_id), media_type="text/event-stream"
+        value_event_stream(service, device_id, stop),
+        media_type="text/event-stream",
     )
 
 
