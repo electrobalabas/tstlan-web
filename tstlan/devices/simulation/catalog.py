@@ -1,9 +1,3 @@
-"""Каталог тестовых приборов по умолчанию.
-
-Фабрика собирает пресеты через `SimulatedDeviceBuilder` — пример того, как
-описывается прибор. Чтобы добавить свой, опишите его здесь тем же способом.
-"""
-
 from tstlan.devices.simulation.builder import SimulatedDevice, SimulatedDeviceBuilder
 from tstlan.devices.simulation.signals import (
     Follow,
