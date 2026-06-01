@@ -6,5 +6,5 @@ import { DeviceMonitor } from "@/components/device-monitor";
 
 export default function DevicePage() {
   const { id } = useParams<{ id: string }>();
-  return <DeviceMonitor deviceId={id} />;
+  return <DeviceMonitor key={id} deviceId={id} />;
 }

@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeftIcon,
+  CheckIcon,
   MagnifyingGlassIcon,
+  PencilSimpleIcon,
+  XIcon,
 } from "@phosphor-icons/react/ssr";
 
+import { useAuth } from "@/components/auth-provider";
 import {
+  ApiError,
   getDevice,
   streamValues,
+  writeValue,
   type DeviceDetail,
   type NetVarCType,
   type VariableInfo,
 } from "@/lib/api";
-import { ApiError } from "@/lib/api";
 import { MODE_META, STATUS_META } from "@/lib/devices";
 
 type LoadState =
@@ -31,9 +36,12 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   const [connection, setConnection] = useState<Connection>("connecting");
   const [query, setQuery] = useState("");
 
+  const handleWritten = useCallback((name: string, value: number) => {
+    setValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
   useEffect(() => {
     let active = true;
-    setLoad({ status: "loading" });
     getDevice(deviceId)
       .then((device) => active && setLoad({ status: "ready", device }))
       .catch((cause) => {
@@ -48,7 +56,6 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
 
   useEffect(() => {
     if (load.status !== "ready") return;
-    setConnection("connecting");
     const stop = streamValues(
       deviceId,
       (snapshot) => {
@@ -96,7 +103,12 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
         </span>
       </div>
 
-      <VariableTable variables={variables} values={values} />
+      <VariableTable
+        deviceId={deviceId}
+        variables={variables}
+        values={values}
+        onWritten={handleWritten}
+      />
     </Shell>
   );
 }
@@ -153,18 +165,22 @@ function ConnectionBadge({ connection }: { connection: Connection }) {
 }
 
 function VariableTable({
+  deviceId,
   variables,
   values,
+  onWritten,
 }: {
+  deviceId: string;
   variables: VariableInfo[];
   values: Record<string, number>;
+  onWritten: (name: string, value: number) => void;
 }) {
   if (variables.length === 0) {
     return <Notice>переменные не найдены</Notice>;
   }
   return (
     <div className="border border-border bg-card">
-      <div className="grid grid-cols-[1fr_4rem_4rem_8rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
+      <div className="grid grid-cols-[1fr_4rem_4rem_9rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
         <span>Переменная</span>
         <span>Тип</span>
         <span>Доступ</span>
@@ -174,8 +190,10 @@ function VariableTable({
         {variables.map((variable) => (
           <VariableRow
             key={variable.name}
+            deviceId={deviceId}
             variable={variable}
             value={values[variable.name]}
+            onWritten={onWritten}
           />
         ))}
       </ul>
@@ -184,32 +202,41 @@ function VariableTable({
 }
 
 function VariableRow({
+  deviceId,
   variable,
   value,
+  onWritten,
 }: {
+  deviceId: string;
   variable: VariableInfo;
   value: number | undefined;
+  onWritten: (name: string, value: number) => void;
 }) {
   const mode = MODE_META[variable.mode];
   return (
-    <li className="grid grid-cols-[1fr_4rem_4rem_8rem] items-center gap-3 px-4 py-2.5">
-      <span className="truncate font-mono text-sm">{variable.name}</span>
-      <span className="font-mono text-xs text-muted-foreground uppercase">
+    <li className="grid grid-cols-[1fr_4rem_4rem_9rem] items-start gap-3 px-4 py-2.5">
+      <span className="truncate pt-0.5 font-mono text-sm">{variable.name}</span>
+      <span className="pt-0.5 font-mono text-xs text-muted-foreground uppercase">
         {variable.ctype}
       </span>
       <span
         title={mode.title}
-        className="font-mono text-xs text-muted-foreground"
+        className="pt-0.5 font-mono text-xs text-muted-foreground"
       >
         {mode.label}
       </span>
-      <span className="text-right font-mono text-sm tabular-nums">
-        <ValueCell
-          ctype={variable.ctype}
+      {mode.writable ? (
+        <WritableValue
+          deviceId={deviceId}
+          variable={variable}
           value={value}
-          writeOnly={variable.mode === "w"}
+          onWritten={onWritten}
         />
-      </span>
+      ) : (
+        <span className="pt-0.5 text-right font-mono text-sm tabular-nums">
+          <ValueCell ctype={variable.ctype} value={value} />
+        </span>
+      )}
     </li>
   );
 }
@@ -217,19 +244,141 @@ function VariableRow({
 function ValueCell({
   ctype,
   value,
-  writeOnly,
 }: {
   ctype: NetVarCType;
   value: number | undefined;
-  writeOnly: boolean;
 }) {
-  if (writeOnly) {
-    return <span className="text-muted-foreground/50">—</span>;
-  }
   if (value === undefined) {
     return <span className="text-muted-foreground/50">…</span>;
   }
   return <span>{formatValue(ctype, value)}</span>;
+}
+
+function WritableValue({
+  deviceId,
+  variable,
+  value,
+  onWritten,
+}: {
+  deviceId: string;
+  variable: VariableInfo;
+  value: number | undefined;
+  onWritten: (name: string, value: number) => void;
+}) {
+  const { state } = useAuth();
+  const csrfToken =
+    state.status === "authenticated" ? state.user.csrf_token : null;
+  const writeOnly = variable.mode === "w";
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEditing() {
+    setDraft(value === undefined ? "" : formatValue(variable.ctype, value));
+    setError(null);
+    setEditing(true);
+  }
+
+  async function submit() {
+    const parsed = Number(draft);
+    if (draft.trim() === "" || Number.isNaN(parsed)) {
+      setError("введите число");
+      return;
+    }
+    if (csrfToken === null) {
+      setError("нет сессии");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const written = await writeValue(
+        deviceId,
+        variable.name,
+        parsed,
+        csrfToken,
+      );
+      onWritten(written.name, written.value);
+      setEditing(false);
+    } catch (cause) {
+      setError(describeWriteError(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={startEditing}
+          className="group flex items-center gap-1.5 font-mono text-sm tabular-nums hover:text-foreground"
+        >
+          {writeOnly || value === undefined ? (
+            <span className="text-xs tracking-wide text-muted-foreground uppercase">
+              задать
+            </span>
+          ) : (
+            <span>{formatValue(variable.ctype, value)}</span>
+          )}
+          <PencilSimpleIcon className="size-3.5 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") void submit();
+            if (event.key === "Escape") setEditing(false);
+          }}
+          disabled={pending}
+          inputMode="decimal"
+          className="h-7 w-full min-w-0 border border-border bg-background px-2 text-right font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
+        />
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={pending}
+          title="Записать"
+          className="flex size-7 shrink-0 items-center justify-center border border-border hover:bg-muted disabled:opacity-50"
+        >
+          <CheckIcon className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={pending}
+          title="Отмена"
+          className="flex size-7 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      </div>
+      {error && (
+        <p className="text-right text-[10px] break-words text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function describeWriteError(cause: unknown): string {
+  if (cause instanceof ApiError) {
+    if (cause.detail) return cause.detail;
+    if (cause.status === 403) return "запись запрещена";
+    if (cause.status === 422) return "недопустимое значение";
+  }
+  return "не удалось записать";
 }
 
 function formatValue(ctype: NetVarCType, value: number): string {

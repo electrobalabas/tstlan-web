@@ -8,11 +8,13 @@ export type Identity = {
 
 export class ApiError extends Error {
   status: number;
+  detail?: string;
 
-  constructor(status: number) {
-    super(`api request failed with status ${status}`);
+  constructor(status: number, detail?: string) {
+    super(detail ?? `api request failed with status ${status}`);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -22,9 +24,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (!response.ok) {
-    throw new ApiError(response.status);
+    throw new ApiError(response.status, await readDetail(response));
   }
   return (await response.json()) as T;
+}
+
+async function readDetail(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    return typeof body.detail === "string" ? body.detail : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function fetchMe(): Promise<Identity> {
