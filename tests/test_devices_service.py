@@ -6,7 +6,6 @@ from tstlan.devices.service import (
     DeviceService,
     VariableAccessError,
     VariableNotFound,
-    default_devices,
 )
 from tstlan.models import NetVar, NetVarCType, NetVarMode
 
@@ -38,10 +37,6 @@ def test_list_devices_returns_all_registered() -> None:
         ]
     )
     assert [device.id for device in service.list_devices()] == ["a", "b"]
-
-
-def test_default_devices_provides_a_catalog() -> None:
-    assert DeviceService(default_devices()).list_devices()
 
 
 def test_get_device_returns_matching_device() -> None:

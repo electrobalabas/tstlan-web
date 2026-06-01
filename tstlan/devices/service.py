@@ -1,5 +1,5 @@
-from tstlan.devices.models import Device, DeviceStatus, coerce_value
-from tstlan.models import NetVar, NetVarCType, NetVarMode
+from tstlan.devices.models import Device, coerce_value
+from tstlan.models import NetVar, NetVarMode
 
 
 class DeviceNotFound(Exception):
@@ -50,33 +50,3 @@ class DeviceService:
             if var.name == name:
                 return var
         raise VariableNotFound(name)
-
-
-def default_devices() -> list[Device]:
-    return [
-        Device(
-            id="multimeter",
-            name="Тестовый мультиметр",
-            type="Эмулятор",
-            enabled=True,
-            status=DeviceStatus.OK,
-            variables=[
-                NetVar("voltage", NetVarCType.F32, NetVarMode.RW),
-                NetVar("current", NetVarCType.F32, NetVarMode.RW),
-                NetVar("range", NetVarCType.U8, NetVarMode.RW, value=1),
-                NetVar("counter", NetVarCType.U32, NetVarMode.R),
-                NetVar("reset", NetVarCType.U8, NetVarMode.W),
-            ],
-        ),
-        Device(
-            id="calibrator",
-            name="Калибратор",
-            type="Эмулятор",
-            enabled=False,
-            status=DeviceStatus.OFFLINE,
-            variables=[
-                NetVar("setpoint", NetVarCType.F32, NetVarMode.RW),
-                NetVar("output_on", NetVarCType.U8, NetVarMode.RW),
-            ],
-        ),
-    ]

@@ -12,7 +12,8 @@ from tstlan.config import Settings
 from tstlan.db import create_engine, create_sessionmaker
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
-from tstlan.devices.service import DeviceService, default_devices
+from tstlan.devices.service import DeviceService
+from tstlan.devices.simulation import SimulationEngine, default_simulated_devices
 
 
 def create_app(*, settings: Settings | None = None) -> FastAPI:
@@ -22,20 +23,25 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
     shutdown_event = asyncio.Event()
+    catalog = default_simulated_devices()
+    simulation = SimulationEngine(catalog)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        simulation_task = asyncio.create_task(simulation.run(shutdown_event))
         try:
             yield
         finally:
             shutdown_event.set()
+            await simulation_task
             await engine.dispose()
 
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
     app.state.settings = settings
-    app.state.devices = DeviceService(default_devices())
+    app.state.devices = DeviceService([item.device for item in catalog])
+    app.state.simulation = simulation
     app.state.shutdown_event = shutdown_event
 
     app.add_middleware(
