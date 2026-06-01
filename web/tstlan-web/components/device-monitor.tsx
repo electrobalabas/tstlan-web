@@ -5,12 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeftIcon,
   CheckIcon,
+  ChartLineIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
   XIcon,
 } from "@phosphor-icons/react/ssr";
 
 import { useAuth } from "@/components/auth-provider";
+import { Sparkline } from "@/components/sparkline";
 import {
   ApiError,
   getDevice,
@@ -30,14 +32,30 @@ type LoadState =
 
 type Connection = "connecting" | "live" | "lost";
 
+const MAX_POINTS = 120;
+
 export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [values, setValues] = useState<Record<string, number>>({});
+  const [history, setHistory] = useState<Record<string, number[]>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [connection, setConnection] = useState<Connection>("connecting");
   const [query, setQuery] = useState("");
 
   const handleWritten = useCallback((name: string, value: number) => {
     setValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const toggleSelected = useCallback((name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -60,6 +78,13 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
       deviceId,
       (snapshot) => {
         setValues(Object.fromEntries(snapshot.map((v) => [v.name, v.value])));
+        setHistory((prev) => {
+          const next = { ...prev };
+          for (const v of snapshot) {
+            next[v.name] = [...(next[v.name] ?? []), v.value].slice(-MAX_POINTS);
+          }
+          return next;
+        });
         setConnection("live");
       },
       () => setConnection("lost"),
@@ -103,13 +128,69 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
         </span>
       </div>
 
+      <ChartPanel
+        variables={device.variables}
+        selected={selected}
+        history={history}
+        values={values}
+        onToggle={toggleSelected}
+      />
+
       <VariableTable
         deviceId={deviceId}
         variables={variables}
         values={values}
+        selected={selected}
         onWritten={handleWritten}
+        onToggle={toggleSelected}
       />
     </Shell>
+  );
+}
+
+function ChartPanel({
+  variables,
+  selected,
+  history,
+  values,
+  onToggle,
+}: {
+  variables: VariableInfo[];
+  selected: Set<string>;
+  history: Record<string, number[]>;
+  values: Record<string, number>;
+  onToggle: (name: string) => void;
+}) {
+  const charted = variables.filter((variable) => selected.has(variable.name));
+  if (charted.length === 0) return null;
+  return (
+    <div className="divide-y divide-border border border-border bg-card">
+      {charted.map((variable) => {
+        const series = history[variable.name] ?? [];
+        const latest = values[variable.name];
+        return (
+          <div key={variable.name} className="flex items-center gap-4 px-4 py-3">
+            <div className="w-32 shrink-0 space-y-0.5">
+              <div className="truncate font-mono text-xs">{variable.name}</div>
+              <div className="font-mono text-sm tabular-nums">
+                {latest === undefined ? "…" : formatValue(variable.ctype, latest)}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <Sparkline values={series} />
+            </div>
+            <button
+              type="button"
+              onClick={() => onToggle(variable.name)}
+              title="Убрать с графика"
+              className="flex size-6 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <XIcon className="size-3" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -168,23 +249,28 @@ function VariableTable({
   deviceId,
   variables,
   values,
+  selected,
   onWritten,
+  onToggle,
 }: {
   deviceId: string;
   variables: VariableInfo[];
   values: Record<string, number>;
+  selected: Set<string>;
   onWritten: (name: string, value: number) => void;
+  onToggle: (name: string) => void;
 }) {
   if (variables.length === 0) {
     return <Notice>переменные не найдены</Notice>;
   }
   return (
     <div className="border border-border bg-card">
-      <div className="grid grid-cols-[1fr_4rem_4rem_9rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
+      <div className="grid grid-cols-[1fr_4rem_4rem_9rem_2rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
         <span>Переменная</span>
         <span>Тип</span>
         <span>Доступ</span>
         <span className="text-right">Значение</span>
+        <span />
       </div>
       <ul className="divide-y divide-border">
         {variables.map((variable) => (
@@ -193,7 +279,9 @@ function VariableTable({
             deviceId={deviceId}
             variable={variable}
             value={values[variable.name]}
+            charted={selected.has(variable.name)}
             onWritten={onWritten}
+            onToggle={onToggle}
           />
         ))}
       </ul>
@@ -205,16 +293,21 @@ function VariableRow({
   deviceId,
   variable,
   value,
+  charted,
   onWritten,
+  onToggle,
 }: {
   deviceId: string;
   variable: VariableInfo;
   value: number | undefined;
+  charted: boolean;
   onWritten: (name: string, value: number) => void;
+  onToggle: (name: string) => void;
 }) {
   const mode = MODE_META[variable.mode];
+  const plottable = variable.mode !== "w";
   return (
-    <li className="grid grid-cols-[1fr_4rem_4rem_9rem] items-start gap-3 px-4 py-2.5">
+    <li className="grid grid-cols-[1fr_4rem_4rem_9rem_2rem] items-start gap-3 px-4 py-2.5">
       <span className="truncate pt-0.5 font-mono text-sm">{variable.name}</span>
       <span className="pt-0.5 font-mono text-xs text-muted-foreground uppercase">
         {variable.ctype}
@@ -237,6 +330,23 @@ function VariableRow({
           <ValueCell ctype={variable.ctype} value={value} />
         </span>
       )}
+      <span className="flex justify-end pt-0.5">
+        {plottable && (
+          <button
+            type="button"
+            onClick={() => onToggle(variable.name)}
+            aria-pressed={charted}
+            title={charted ? "Убрать с графика" : "Добавить на график"}
+            className={`flex size-6 items-center justify-center border transition-colors ${
+              charted
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground/50 hover:text-foreground"
+            }`}
+          >
+            <ChartLineIcon className="size-3.5" />
+          </button>
+        )}
+      </span>
     </li>
   );
 }
