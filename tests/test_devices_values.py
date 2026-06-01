@@ -1,6 +1,6 @@
 import pytest
 
-from tstlan.devices.models import ValueValidationError, coerce_value
+from tstlan.devices.models import ValueValidationError, coerce_value, fit_value
 from tstlan.models import NetVarCType
 
 
@@ -42,3 +42,19 @@ def test_converts_integer_to_float_type() -> None:
 
 def test_keeps_float_for_float_type() -> None:
     assert coerce_value(NetVarCType.F64, 1.25) == 1.25
+
+
+def test_fit_value_saturates_above_range() -> None:
+    assert fit_value(NetVarCType.U8, 300.0) == 255
+
+
+def test_fit_value_saturates_below_range() -> None:
+    assert fit_value(NetVarCType.I8, -200.0) == -128
+
+
+def test_fit_value_rounds_float_to_integer_type() -> None:
+    assert fit_value(NetVarCType.U16, 2.6) == 3
+
+
+def test_fit_value_keeps_float_for_float_type() -> None:
+    assert fit_value(NetVarCType.F32, 1.5) == 1.5
