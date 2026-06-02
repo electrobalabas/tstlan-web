@@ -12,7 +12,11 @@ import {
 } from "@phosphor-icons/react/ssr";
 
 import { useAuth } from "@/components/auth-provider";
-import { Sparkline } from "@/components/sparkline";
+import {
+  TimeSeriesChart,
+  type Sample,
+} from "@/components/time-series-chart";
+import { cn } from "@/lib/utils";
 import {
   ApiError,
   getDevice,
@@ -32,12 +36,13 @@ type LoadState =
 
 type Connection = "connecting" | "live" | "lost";
 
-const MAX_POINTS = 120;
+// Клиентский буфер ряда: ~15 минут при шаге потока в 1 с (см. бэкенд SSE).
+const MAX_POINTS = 1000;
 
 export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [values, setValues] = useState<Record<string, number>>({});
-  const [history, setHistory] = useState<Record<string, number[]>>({});
+  const [history, setHistory] = useState<Record<string, Sample[]>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [connection, setConnection] = useState<Connection>("connecting");
   const [query, setQuery] = useState("");
@@ -77,11 +82,14 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
     const stop = streamValues(
       deviceId,
       (snapshot) => {
+        const t = Date.now();
         setValues(Object.fromEntries(snapshot.map((v) => [v.name, v.value])));
         setHistory((prev) => {
           const next = { ...prev };
           for (const v of snapshot) {
-            next[v.name] = [...(next[v.name] ?? []), v.value].slice(-MAX_POINTS);
+            next[v.name] = [...(next[v.name] ?? []), { t, v: v.value }].slice(
+              -MAX_POINTS,
+            );
           }
           return next;
         });
@@ -148,6 +156,14 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   );
 }
 
+const WINDOWS: { label: string; ms: number | null }[] = [
+  { label: "30с", ms: 30_000 },
+  { label: "1м", ms: 60_000 },
+  { label: "5м", ms: 300_000 },
+  { label: "15м", ms: 900_000 },
+  { label: "всё", ms: null },
+];
+
 function ChartPanel({
   variables,
   selected,
@@ -157,39 +173,78 @@ function ChartPanel({
 }: {
   variables: VariableInfo[];
   selected: Set<string>;
-  history: Record<string, number[]>;
+  history: Record<string, Sample[]>;
   values: Record<string, number>;
   onToggle: (name: string) => void;
 }) {
+  const [windowMs, setWindowMs] = useState<number | null>(60_000);
   const charted = variables.filter((variable) => selected.has(variable.name));
   if (charted.length === 0) return null;
   return (
-    <div className="divide-y divide-border border border-border bg-card">
-      {charted.map((variable) => {
-        const series = history[variable.name] ?? [];
-        const latest = values[variable.name];
-        return (
-          <div key={variable.name} className="flex items-center gap-4 px-4 py-3">
-            <div className="w-32 shrink-0 space-y-0.5">
-              <div className="truncate font-mono text-xs">{variable.name}</div>
-              <div className="font-mono text-sm tabular-nums">
-                {latest === undefined ? "…" : formatValue(variable.ctype, latest)}
-              </div>
-            </div>
-            <div className="min-w-0 flex-1">
-              <Sparkline values={series} />
-            </div>
+    <div className="space-y-4 border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+          Графики
+        </span>
+        <div className="flex">
+          {WINDOWS.map((option, index) => (
             <button
+              key={option.label}
               type="button"
-              onClick={() => onToggle(variable.name)}
-              title="Убрать с графика"
-              className="flex size-6 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => setWindowMs(option.ms)}
+              aria-pressed={windowMs === option.ms}
+              className={cn(
+                "border border-border px-2 py-1 font-mono text-[11px] transition-colors",
+                index > 0 && "-ml-px",
+                windowMs === option.ms
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <XIcon className="size-3" />
+              {option.label}
             </button>
-          </div>
-        );
-      })}
+          ))}
+        </div>
+      </div>
+      <div className="space-y-5 divide-y divide-border">
+        {charted.map((variable) => {
+          const latest = values[variable.name];
+          return (
+            <div key={variable.name} className="space-y-2 pt-5 first:pt-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <span className="truncate font-mono text-xs">
+                    {variable.name}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground uppercase">
+                    {variable.ctype}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-sm tabular-nums">
+                    {latest === undefined
+                      ? "…"
+                      : formatValue(variable.ctype, latest)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(variable.name)}
+                    title="Убрать с графика"
+                    className="flex size-6 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <XIcon className="size-3" />
+                  </button>
+                </div>
+              </div>
+              <TimeSeriesChart
+                samples={history[variable.name] ?? []}
+                windowMs={windowMs}
+                format={(value) => formatChartValue(variable.ctype, value)}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -494,6 +549,15 @@ function describeWriteError(cause: unknown): string {
 function formatValue(ctype: NetVarCType, value: number): string {
   if (ctype === "f32" || ctype === "f64") {
     return Number.isInteger(value) ? value.toFixed(1) : String(value);
+  }
+  return String(value);
+}
+
+// На графике (оси, тултип, статистика) длинные float'ы не нужны — режем до
+// 6 значащих цифр; целочисленные типы остаются точными.
+function formatChartValue(ctype: NetVarCType, value: number): string {
+  if (ctype === "f32" || ctype === "f64") {
+    return Number(value.toPrecision(6)).toString();
   }
   return String(value);
 }
