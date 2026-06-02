@@ -48,3 +48,16 @@ def coerce_value(ctype: NetVarCType, value: int | float) -> int | float:
     if not low <= value <= high:
         raise ValueValidationError(f"{value} вне диапазона {ctype} [{low}, {high}]")
     return value
+
+
+def fit_value(ctype: NetVarCType, value: float) -> int | float:
+    """Уложить произвольное число в регистр типа `ctype`.
+
+    В отличие от `coerce_value` (строгая проверка ввода оператора) — мягкая
+    подгонка для эмулятора: округление к целому и насыщение по диапазону,
+    чтобы синус или шум, вышедшие за границу, не роняли симуляцию.
+    """
+    if ctype in _FLOAT_TYPES:
+        return float(value)
+    low, high = _INT_RANGES[ctype]
+    return max(low, min(high, round(value)))

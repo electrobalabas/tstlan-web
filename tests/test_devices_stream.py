@@ -43,6 +43,12 @@ def test_stream_uses_event_stream_media_type(devices_service: DeviceService) -> 
     assert response.media_type == "text/event-stream"
 
 
+def test_stream_disables_proxy_transform(devices_service: DeviceService) -> None:
+    # no-transform не даёт прокси сжимать/буферизовать поток (иначе EventSource молчит)
+    response = stream_values("dev", devices_service, asyncio.Event())
+    assert "no-transform" in response.headers["cache-control"]
+
+
 def test_stream_unknown_device_returns_404(devices_client: TestClient) -> None:
     assert devices_client.get("/devices/ghost/stream").status_code == 404
 
