@@ -10,6 +10,7 @@ from tstlan.db import Base
 
 class Role(StrEnum):
     ADMIN = "admin"
+    DEV = "dev"
     USER = "user"
 
 
