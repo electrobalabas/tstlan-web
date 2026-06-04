@@ -9,6 +9,10 @@ from fastapi import FastAPI
 from tstlan.auth.middleware import AuthCsrfMiddleware
 from tstlan.auth.routes import router as auth_router
 from tstlan.config import Settings
+from tstlan.configs.routes import (
+    register_exception_handlers as register_config_handlers,
+)
+from tstlan.configs.routes import router as configs_router
 from tstlan.db import create_engine, create_sessionmaker
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
@@ -59,6 +63,8 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(devices_router)
+    app.include_router(configs_router)
     register_exception_handlers(app)
+    register_config_handlers(app)
 
     return app
