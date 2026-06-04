@@ -7,7 +7,13 @@ from tstlan.db import run_migrations
 def test_migrations_create_the_expected_schema(tmp_path: Path) -> None:
     db_file = tmp_path / "tstlan.db"
     run_migrations(f"sqlite+aiosqlite:///{db_file}")
-    assert _tables(db_file) == {"users", "sessions", "alembic_version"}
+    assert _tables(db_file) == {
+        "users",
+        "sessions",
+        "device_configs",
+        "config_shares",
+        "alembic_version",
+    }
 
 
 def _tables(db_file: Path) -> set[str]:
