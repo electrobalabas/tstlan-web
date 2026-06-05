@@ -1,0 +1,340 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  availableGrantees,
+  canPublish,
+  configToDraft,
+  draftToPayload,
+  emptyDraft,
+  hasErrors,
+  nextVariableIndex,
+  validateConfigForm,
+  type ConfigFormDraft,
+} from "@/lib/configs";
+import type { ConfigDetail, UserSummary } from "@/lib/api";
+
+function validDraft(over: Partial<ConfigFormDraft> = {}): ConfigFormDraft {
+  return {
+    name: "Мультиметр стенд 1",
+    deviceType: "multimeter",
+    visibility: "private",
+    transport: "ethernet",
+    ip: "192.168.0.50",
+    port: "1234",
+    gpibAddr: "",
+    comName: "",
+    ipRequest: "",
+    pollPeriodMs: "200",
+    discreteInputsBytes: "0",
+    coilsBytes: "0",
+    holdingRegisters: "0",
+    inputRegisters: "0",
+    params: {},
+    variables: [
+      { index: 0, name: "voltage", ctype: "f32", graph: true, category: "" },
+    ],
+    ...over,
+  };
+}
+
+describe("validateConfigForm", () => {
+  it("принимает корректный черновик", () => {
+    expect(validateConfigForm(validDraft())).toEqual({});
+  });
+
+  it("требует название", () => {
+    expect(validateConfigForm(validDraft({ name: "   " })).name).toBeTruthy();
+  });
+
+  it("ограничивает длину названия", () => {
+    expect(
+      validateConfigForm(validDraft({ name: "x".repeat(129) })).name,
+    ).toBeTruthy();
+  });
+
+  it("требует тип прибора", () => {
+    expect(
+      validateConfigForm(validDraft({ deviceType: "" })).deviceType,
+    ).toBeTruthy();
+  });
+
+  it("требует IP и порт для ethernet", () => {
+    const errors = validateConfigForm(validDraft({ ip: "", port: "" }));
+    expect(errors.ip).toBeTruthy();
+    expect(errors.port).toBeTruthy();
+  });
+
+  it("требует IP для modbus", () => {
+    const errors = validateConfigForm(
+      validDraft({ transport: "modbus_udp", ip: "", port: "502" }),
+    );
+    expect(errors.ip).toBeTruthy();
+    expect(errors.port).toBeUndefined();
+  });
+
+  it("отбраковывает порт вне диапазона", () => {
+    expect(validateConfigForm(validDraft({ port: "70000" })).port).toBeTruthy();
+    expect(validateConfigForm(validDraft({ port: "0" })).port).toBeTruthy();
+    expect(validateConfigForm(validDraft({ port: "12.5" })).port).toBeTruthy();
+  });
+
+  it("проверяет счётчики Modbus", () => {
+    const bad = validateConfigForm(
+      validDraft({ transport: "modbus_tcp", holdingRegisters: "-1" }),
+    );
+    expect(bad.modbus?.holdingRegisters).toBeTruthy();
+
+    const ok = validateConfigForm(
+      validDraft({ transport: "modbus_tcp", holdingRegisters: "76" }),
+    );
+    expect(ok).toEqual({});
+  });
+
+  it("для gpib требует адрес в диапазоне и не требует IP", () => {
+    const bad = validateConfigForm(
+      validDraft({ transport: "gpib", ip: "", port: "", gpibAddr: "40" }),
+    );
+    expect(bad.gpibAddr).toBeTruthy();
+    expect(bad.ip).toBeUndefined();
+    expect(bad.port).toBeUndefined();
+
+    const ok = validateConfigForm(
+      validDraft({ transport: "gpib", ip: "", port: "", gpibAddr: "22" }),
+    );
+    expect(ok).toEqual({});
+  });
+
+  it("для com требует имя порта", () => {
+    expect(
+      validateConfigForm(
+        validDraft({ transport: "com", ip: "", port: "", comName: "" }),
+      ).comName,
+    ).toBeTruthy();
+  });
+
+  it("требует положительный целый период опроса", () => {
+    expect(
+      validateConfigForm(validDraft({ pollPeriodMs: "0" })).pollPeriodMs,
+    ).toBeTruthy();
+    expect(
+      validateConfigForm(validDraft({ pollPeriodMs: "-5" })).pollPeriodMs,
+    ).toBeTruthy();
+    expect(
+      validateConfigForm(validDraft({ pollPeriodMs: "1.5" })).pollPeriodMs,
+    ).toBeTruthy();
+    expect(
+      validateConfigForm(validDraft({ pollPeriodMs: "" })).pollPeriodMs,
+    ).toBeTruthy();
+  });
+
+  it("ловит пустые и повторяющиеся имена переменных", () => {
+    const errors = validateConfigForm(
+      validDraft({
+        variables: [
+          { index: 0, name: "voltage", ctype: "f32", graph: false, category: "" },
+          { index: 1, name: "", ctype: "u8", graph: false, category: "" },
+          { index: 2, name: "voltage", ctype: "u8", graph: false, category: "" },
+        ],
+      }),
+    );
+    expect(errors.variables?.[1]).toBeTruthy();
+    expect(errors.variables?.[2]).toBeTruthy();
+    expect(errors.variables?.[0]).toBeUndefined();
+  });
+});
+
+describe("hasErrors", () => {
+  it("различает пустые и заполненные ошибки", () => {
+    expect(hasErrors({})).toBe(false);
+    expect(hasErrors({ name: "укажите название" })).toBe(true);
+  });
+});
+
+describe("nextVariableIndex", () => {
+  it("даёт следующий адрес после максимального", () => {
+    expect(nextVariableIndex([])).toBe(0);
+    expect(
+      nextVariableIndex([
+        { index: 0, name: "a", ctype: "bit", graph: false, category: "" },
+        { index: 34, name: "b", ctype: "u8", graph: false, category: "" },
+      ]),
+    ).toBe(35);
+  });
+});
+
+describe("draftToPayload", () => {
+  it("обнуляет нерелевантные поля подключения и тримит строки", () => {
+    const payload = draftToPayload(
+      validDraft({
+        ip: " 10.0.0.1 ",
+        port: "1234",
+        variables: [
+          { index: 5, name: " temp ", ctype: "f32", graph: true, category: " A " },
+        ],
+      }),
+    );
+    expect(payload.connection).toEqual({
+      transport: "ethernet",
+      ip: "10.0.0.1",
+      port: 1234,
+      gpib_addr: null,
+      com_name: null,
+      ip_request: null,
+      poll_period_ms: 200,
+      modbus: null,
+      params: {},
+    });
+    expect(payload.variables[0]).toEqual({
+      index: 5,
+      name: "temp",
+      ctype: "f32",
+      graph: true,
+      category: "A",
+    });
+  });
+
+  it("для gpib пишет адрес и обнуляет сеть", () => {
+    const payload = draftToPayload(
+      validDraft({ transport: "gpib", ip: "x", port: "9", gpibAddr: "22" }),
+    );
+    expect(payload.connection.gpib_addr).toBe(22);
+    expect(payload.connection.ip).toBeNull();
+    expect(payload.connection.port).toBeNull();
+  });
+
+  it("для modbus пишет карту регистров и сохраняет адрес переменной", () => {
+    const payload = draftToPayload(
+      validDraft({
+        transport: "modbus_udp",
+        ip: "192.168.55.55",
+        port: "35123",
+        ipRequest: "device_get_ip",
+        holdingRegisters: "76",
+        variables: [
+          { index: 34, name: "reg", ctype: "bit", graph: false, category: "" },
+        ],
+      }),
+    );
+    expect(payload.connection.transport).toBe("modbus_udp");
+    expect(payload.connection.ip_request).toBe("device_get_ip");
+    expect(payload.connection.modbus).toEqual({
+      discrete_inputs_bytes: 0,
+      coils_bytes: 0,
+      holding_registers: 76,
+      input_registers: 0,
+    });
+    expect(payload.variables[0]).toEqual({
+      index: 34,
+      name: "reg",
+      ctype: "bit",
+      graph: false,
+      category: "",
+    });
+  });
+});
+
+describe("configToDraft", () => {
+  function detail(over: Partial<ConfigDetail> = {}): ConfigDetail {
+    return {
+      id: 1,
+      name: "Имя",
+      device_type: "multimeter",
+      visibility: "shared",
+      owner_login: "dev",
+      access: "owner",
+      created_at: "2026-06-04T00:00:00",
+      updated_at: "2026-06-04T00:00:00",
+      shares: [],
+      payload: {
+        connection: {
+          transport: "modbus_udp",
+          ip: "192.168.55.55",
+          port: 35123,
+          gpib_addr: null,
+          com_name: null,
+          ip_request: "device_get_ip",
+          poll_period_ms: 200,
+          modbus: {
+            discrete_inputs_bytes: 0,
+            coils_bytes: 0,
+            holding_registers: 76,
+            input_registers: 0,
+          },
+          params: {},
+        },
+        variables: [
+          { index: 34, name: "v", ctype: "u32", graph: false, category: "" },
+        ],
+      },
+      ...over,
+    };
+  }
+
+  it("разворачивает конфиг в строки формы", () => {
+    const draft = configToDraft(detail());
+    expect(draft.transport).toBe("modbus_udp");
+    expect(draft.ipRequest).toBe("device_get_ip");
+    expect(draft.holdingRegisters).toBe("76");
+    expect(draft.variables[0].index).toBe(34);
+  });
+
+  it("даёт валидный round-trip с draftToPayload и сохраняет индекс", () => {
+    const source = validDraft({
+      transport: "modbus_udp",
+      ip: "10.0.0.5",
+      port: "502",
+      holdingRegisters: "12",
+      variables: [
+        { index: 7, name: "reg", ctype: "bit", graph: false, category: "" },
+      ],
+    });
+    const restored = configToDraft(
+      detail({
+        name: source.name,
+        device_type: source.deviceType,
+        visibility: source.visibility,
+        payload: draftToPayload(source),
+      }),
+    );
+    expect(validateConfigForm(restored)).toEqual({});
+    expect(restored.variables[0].index).toBe(7);
+  });
+});
+
+describe("canPublish", () => {
+  it("публиковать может только dev и admin", () => {
+    expect(canPublish("admin")).toBe(true);
+    expect(canPublish("dev")).toBe(true);
+    expect(canPublish("user")).toBe(false);
+  });
+});
+
+describe("availableGrantees", () => {
+  const users: UserSummary[] = [
+    { login: "dev", role: "dev" },
+    { login: "bob", role: "user" },
+    { login: "eve", role: "dev" },
+  ];
+
+  it("исключает владельца и уже добавленных", () => {
+    const rest = availableGrantees(users, "dev", [
+      { login: "bob", permission: "read" },
+    ]);
+    expect(rest.map((user) => user.login)).toEqual(["eve"]);
+  });
+
+  it("возвращает всех остальных, когда грантов нет", () => {
+    const rest = availableGrantees(users, "dev", []);
+    expect(rest.map((user) => user.login)).toEqual(["bob", "eve"]);
+  });
+});
+
+describe("emptyDraft", () => {
+  it("даёт ethernet и период 200 по умолчанию", () => {
+    const draft = emptyDraft();
+    expect(draft.transport).toBe("ethernet");
+    expect(draft.pollPeriodMs).toBe("200");
+    expect(draft.variables).toEqual([]);
+    expect(draft.params).toEqual({});
+  });
+});

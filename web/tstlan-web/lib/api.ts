@@ -1,4 +1,4 @@
-export type Role = "admin" | "user";
+export type Role = "admin" | "dev" | "user";
 
 export type Identity = {
   login: string;
@@ -29,6 +29,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await readDetail(response));
+  }
+}
+
 async function readDetail(response: Response): Promise<string | undefined> {
   try {
     const body = (await response.json()) as { detail?: unknown };
@@ -56,9 +66,19 @@ export function logout(csrfToken: string): Promise<{ status: string }> {
   });
 }
 
+export type UserSummary = {
+  login: string;
+  role: Role;
+};
+
+export function listUsers(): Promise<UserSummary[]> {
+  return request<UserSummary[]>("/users");
+}
+
 export type DeviceStatus = "ok" | "offline" | "error";
 
 export type NetVarCType =
+  | "bit"
   | "u8"
   | "i8"
   | "u16"
@@ -143,4 +163,144 @@ export function streamValues(
   };
   source.onerror = () => onError?.();
   return () => source.close();
+}
+
+export type ConfigVisibility = "private" | "shared" | "public";
+export type SharePermission = "read" | "write";
+export type ConfigAccess = "owner" | "write" | "read";
+export type Transport =
+  | "ethernet"
+  | "gpib"
+  | "com"
+  | "modbus_tcp"
+  | "modbus_udp";
+
+export type ModbusMap = {
+  discrete_inputs_bytes: number;
+  coils_bytes: number;
+  holding_registers: number;
+  input_registers: number;
+};
+
+export type ConnectionSettings = {
+  transport: Transport;
+  ip: string | null;
+  port: number | null;
+  gpib_addr: number | null;
+  com_name: string | null;
+  ip_request: string | null;
+  poll_period_ms: number;
+  modbus: ModbusMap | null;
+  params: Record<string, string>;
+};
+
+export type ConfigVar = {
+  index: number;
+  name: string;
+  ctype: NetVarCType;
+  graph: boolean;
+  category: string;
+};
+
+export type ConfigPayload = {
+  connection: ConnectionSettings;
+  variables: ConfigVar[];
+};
+
+export type ShareInfo = {
+  login: string;
+  permission: SharePermission;
+};
+
+export type ConfigSummary = {
+  id: number;
+  name: string;
+  device_type: string;
+  visibility: ConfigVisibility;
+  owner_login: string;
+  access: ConfigAccess;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConfigDetail = ConfigSummary & {
+  payload: ConfigPayload;
+  shares: ShareInfo[];
+};
+
+export type ConfigCreate = {
+  name: string;
+  device_type: string;
+  payload: ConfigPayload;
+  visibility: ConfigVisibility;
+};
+
+export type ConfigUpdate = {
+  name?: string;
+  payload?: ConfigPayload;
+  visibility?: ConfigVisibility;
+};
+
+export function listConfigs(): Promise<ConfigSummary[]> {
+  return request<ConfigSummary[]>("/configs");
+}
+
+export function getConfig(id: number): Promise<ConfigDetail> {
+  return request<ConfigDetail>(`/configs/${id}`);
+}
+
+export function createConfig(
+  body: ConfigCreate,
+  csrfToken: string,
+): Promise<ConfigDetail> {
+  return request<ConfigDetail>("/configs", {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateConfig(
+  id: number,
+  body: ConfigUpdate,
+  csrfToken: string,
+): Promise<ConfigDetail> {
+  return request<ConfigDetail>(`/configs/${id}`, {
+    method: "PUT",
+    headers: { "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteConfig(id: number, csrfToken: string): Promise<void> {
+  return requestVoid(`/configs/${id}`, {
+    method: "DELETE",
+    headers: { "X-CSRF-Token": csrfToken },
+  });
+}
+
+export function shareConfig(
+  id: number,
+  share: ShareInfo,
+  csrfToken: string,
+): Promise<ConfigDetail> {
+  return request<ConfigDetail>(`/configs/${id}/shares`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(share),
+  });
+}
+
+export function unshareConfig(
+  id: number,
+  login: string,
+  csrfToken: string,
+): Promise<ConfigDetail> {
+  return request<ConfigDetail>(
+    `/configs/${id}/shares/${encodeURIComponent(login)}`,
+    {
+      method: "DELETE",
+      headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
 }

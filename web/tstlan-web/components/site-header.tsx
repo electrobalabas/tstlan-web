@@ -6,6 +6,7 @@ import {
   GaugeIcon,
   HardDrivesIcon,
   SignOutIcon,
+  SlidersIcon,
 } from "@phosphor-icons/react/ssr";
 import type { Icon } from "@phosphor-icons/react";
 
@@ -22,6 +23,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Дашборд", icon: GaugeIcon },
   { href: "/devices", label: "Устройства", icon: HardDrivesIcon },
+  { href: "/configs", label: "Конфиги", icon: SlidersIcon },
 ];
 
 export function SiteHeader() {
