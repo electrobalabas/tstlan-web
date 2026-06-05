@@ -41,7 +41,7 @@ export default function DevicesPage() {
         </div>
       </header>
 
-      {state.status === "loading" && <Notice>загрузка…</Notice>}
+      {state.status === "loading" && <Notice>загрузка...</Notice>}
       {state.status === "error" && (
         <Notice>не удалось загрузить список устройств</Notice>
       )}

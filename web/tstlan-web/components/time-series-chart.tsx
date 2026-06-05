@@ -24,7 +24,7 @@ type Indicator = {
   compute: (values: number[]) => number;
 };
 
-// Задел под индикаторы: новая статистика на графике — это одна запись здесь.
+// Задел под индикаторы: новая статистика на графике - это одна запись здесь.
 // compute получает значения видимого окна, результат рисуется как ReferenceLine.
 const INDICATORS: Indicator[] = [
   { id: "mean", label: "среднее", color: "#0d9488", compute: mean },
@@ -47,15 +47,15 @@ export function TimeSeriesChart({
     startIndex?: number;
     endIndex?: number;
   }>({});
-  // Диапазон оси Y. Пустые поля — авто-масштаб по данным (как было); заданные
-  // границы фиксируют шкалу, чтобы мелкие колебания не растягивались на всю высоту.
+  // Диапазон оси Y. Пустые поля - авто-масштаб по данным; заданные границы
+  // фиксируют шкалу, чтобы мелкие колебания не растягивались на всю высоту.
   const [yRange, setYRange] = useState<{ min: string; max: string }>({
     min: "",
     max: "",
   });
 
-  // Смена окна перестраивает ряд — сбрасываем выделение brush прямо в рендере
-  // (паттерн React для подстройки состояния под изменившийся пропс).
+  // Смена окна перестраивает ряд, поэтому сбрасываем выделение brush прямо в
+  // рендере (паттерн React для подстройки состояния под изменившийся пропс).
   const [brushWindow, setBrushWindow] = useState(windowMs);
   if (brushWindow !== windowMs) {
     setBrushWindow(windowMs);
@@ -68,8 +68,8 @@ export function TimeSeriesChart({
     return samples.filter((sample) => sample.t >= cutoff);
   }, [samples, windowMs]);
 
-  // Статистика и линии-индикаторы считаются по видимому участку: в режиме «всё»
-  // это выделение brush, иначе — всё отфильтрованное окно.
+  // Статистика и линии-индикаторы считаются по видимому участку: в режиме "всё"
+  // это выделение brush, иначе всё отфильтрованное окно.
   const visible = useMemo(() => {
     if (windowMs !== null) return data;
     const start = brush.startIndex ?? 0;
@@ -85,7 +85,7 @@ export function TimeSeriesChart({
         style={{ height }}
         className="flex items-center justify-center border border-dashed border-border font-mono text-[11px] tracking-wider text-muted-foreground/60 uppercase"
       >
-        ожидание данных…
+        ожидание данных...
       </div>
     );
   }
@@ -218,7 +218,7 @@ export function TimeSeriesChart({
             aria-label="Нижняя граница оси значений"
             className="h-5 w-12 border border-border bg-background px-1 text-right tabular-nums outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
           />
-          <span aria-hidden>…</span>
+          <span aria-hidden>...</span>
           <input
             value={yRange.max}
             onChange={(event) =>

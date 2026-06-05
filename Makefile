@@ -1,7 +1,9 @@
 .PHONY: test format can-i-push migrate
 
 test:
-	uv run pytest
+	uv run pytest -n auto --dist loadscope -ra -q \
+    --cov=tstlan --cov-report=term-missing --cov-report=html \
+    --timeout=30
 
 migrate:
 	uv run alembic upgrade head

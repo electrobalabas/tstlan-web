@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,15 +22,30 @@ class Access(StrEnum):
     READ = "read"
 
 
+Transport = Literal["ethernet", "gpib", "com", "modbus_tcp", "modbus_udp"]
+
+
+class ModbusMap(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    discrete_inputs_bytes: int = 0
+    coils_bytes: int = 0
+    holding_registers: int = 0
+    input_registers: int = 0
+
+
 class ConnectionSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    transport: Literal["ethernet", "gpib", "com", "modbus"] = "ethernet"
+    transport: Transport = "ethernet"
     ip: str | None = None
     port: int | None = None
     gpib_addr: int | None = None
     com_name: str | None = None
+    ip_request: str | None = None
     poll_period_ms: int = 200
+    modbus: ModbusMap | None = None
+    params: dict[str, str] = Field(default_factory=dict)
 
 
 class ConfigVar(BaseModel):
@@ -39,6 +55,36 @@ class ConfigVar(BaseModel):
     ctype: NetVarCType
     graph: bool = False
     category: str = ""
+
+
+class VarOffset(NamedTuple):
+    """Адрес переменной: байтовое смещение и, для bit, номер бита в байте."""
+
+    byte: int
+    bit: int | None = None
+
+
+def variable_offsets(variables: Sequence[ConfigVar]) -> list[VarOffset]:
+    """Адреса переменных: смещение выводится из порядка и типа"""
+    offsets: list[VarOffset] = []
+    prev: VarOffset | None = None
+    prev_ctype: NetVarCType | None = None
+    for var in variables:
+        is_bit = var.ctype is NetVarCType.BIT
+        if prev is None or prev_ctype is None:
+            cur = VarOffset(0, 0 if is_bit else None)
+        elif prev_ctype is NetVarCType.BIT and is_bit:
+            assert prev.bit is not None
+            cur = (
+                VarOffset(prev.byte + 1, 0)
+                if prev.bit >= 7
+                else VarOffset(prev.byte, prev.bit + 1)
+            )
+        else:
+            cur = VarOffset(prev.byte + prev_ctype.byte_size, 0 if is_bit else None)
+        offsets.append(cur)
+        prev, prev_ctype = cur, var.ctype
+    return offsets
 
 
 class ConfigPayload(BaseModel):

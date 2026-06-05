@@ -103,7 +103,7 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   if (load.status !== "ready") {
     return (
       <Shell>
-        {load.status === "loading" && <Notice>загрузка…</Notice>}
+        {load.status === "loading" && <Notice>загрузка...</Notice>}
         {load.status === "notfound" && <Notice>устройство не найдено</Notice>}
         {load.status === "error" && (
           <Notice>не удалось загрузить устройство</Notice>
@@ -223,7 +223,7 @@ function ChartPanel({
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm tabular-nums">
                     {latest === undefined
-                      ? "…"
+                      ? "..."
                       : formatValue(variable.ctype, latest)}
                   </span>
                   <button
@@ -414,7 +414,7 @@ function ValueCell({
   value: number | undefined;
 }) {
   if (value === undefined) {
-    return <span className="text-muted-foreground/50">…</span>;
+    return <span className="text-muted-foreground/50">...</span>;
   }
   return <span>{formatValue(ctype, value)}</span>;
 }
@@ -553,7 +553,7 @@ function formatValue(ctype: NetVarCType, value: number): string {
   return String(value);
 }
 
-// На графике (оси, тултип, статистика) длинные float'ы не нужны — режем до
+// На графике (оси, тултип, статистика) длинные float'ы не нужны, режем до
 // 6 значащих цифр; целочисленные типы остаются точными.
 function formatChartValue(ctype: NetVarCType, value: number): string {
   if (ctype === "f32" || ctype === "f64") {

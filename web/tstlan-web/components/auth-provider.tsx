@@ -76,7 +76,7 @@ function AuthLoading() {
   return (
     <div className="flex flex-1 items-center justify-center">
       <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-        загрузка…
+        загрузка...
       </span>
     </div>
   );

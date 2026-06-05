@@ -21,6 +21,13 @@ async def create_user(
     return user
 
 
+async def list_users(db: AsyncSession) -> list[User]:
+    result = await db.execute(
+        select(User).where(User.is_active.is_(True)).order_by(User.login)
+    )
+    return list(result.scalars().all())
+
+
 async def authenticate(db: AsyncSession, login: str, password: str) -> User | None:
     user = (
         await db.execute(select(User).where(User.login == login))

@@ -1,5 +1,6 @@
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from tstlan.auth.models import Role, User
 from tstlan.configs.models import (
@@ -32,11 +33,7 @@ class CannotShareWithOwner(Exception):
 
 
 def effective_access(user: User, config: DeviceConfig) -> Access | None:
-    """Доступ пользователя к конфигу или None, если доступа нет.
-
-    `OWNER` означает полный контроль (владелец или администратор): чтение,
-    запись содержимого, переименование, смена видимости, шаринг, удаление.
-    """
+    """Доступ пользователя к конфигу."""
     if user.role is Role.ADMIN or config.owner_id == user.id:
         return Access.OWNER
     permission = _share_permission(user, config)
@@ -63,7 +60,7 @@ def _can_publish(user: User) -> bool:
 def _resolve_create_visibility(
     user: User, visibility: ConfigVisibility
 ) -> ConfigVisibility:
-    # PUBLIC — явный флаг публикации (только dev/admin). Непубличный конфиг при
+    # PUBLIC - явный флаг публикации (только dev/admin). Непубличный конфиг при
     # создании остаётся PRIVATE; метку SHARED выставляет шаринг.
     if visibility is ConfigVisibility.PUBLIC:
         if not _can_publish(user):
@@ -73,12 +70,27 @@ def _resolve_create_visibility(
 
 
 def _normalize_visibility(config: DeviceConfig) -> None:
-    # PRIVATE/SHARED — производная метка от наличия грантов; PUBLIC не трогаем.
+    # PRIVATE/SHARED - производная метка от наличия грантов; PUBLIC не трогаем.
     if config.visibility is ConfigVisibility.PUBLIC:
         return
     config.visibility = (
         ConfigVisibility.SHARED if config.shares else ConfigVisibility.PRIVATE
     )
+
+
+async def _load_detail(db: AsyncSession, config_id: int) -> DeviceConfig:
+    # После мутации перечитываем конфиг с жадной загрузкой owner/shares/grantee,
+    # чтобы сериализация ответа не дёргала ленивые relationship (MissingGreenlet).
+    result = await db.execute(
+        select(DeviceConfig)
+        .where(DeviceConfig.id == config_id)
+        .options(
+            selectinload(DeviceConfig.owner),
+            selectinload(DeviceConfig.shares).selectinload(ConfigShare.grantee),
+        )
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one()
 
 
 async def list_configs(
@@ -137,8 +149,7 @@ async def create_config(
     )
     db.add(config)
     await db.commit()
-    await db.refresh(config)
-    return config
+    return await _load_detail(db, config.id)
 
 
 async def update_config(
@@ -165,7 +176,7 @@ async def update_config(
         config.payload = data.payload.model_dump(mode="json")
 
     await db.commit()
-    await db.refresh(config)
+    config = await _load_detail(db, config_id)
     return config, effective_access(user, config) or access
 
 
@@ -200,8 +211,7 @@ async def share_config(
         )
     _normalize_visibility(config)
     await db.commit()
-    await db.refresh(config)
-    return config, access
+    return await _load_detail(db, config_id), access
 
 
 async def unshare_config(
@@ -216,5 +226,4 @@ async def unshare_config(
     config.shares.remove(share)
     _normalize_visibility(config)
     await db.commit()
-    await db.refresh(config)
-    return config, access
+    return await _load_detail(db, config_id), access

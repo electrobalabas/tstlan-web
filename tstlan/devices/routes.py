@@ -96,7 +96,7 @@ def stream_values(
         value_event_stream(service, device_id, stop),
         media_type="text/event-stream",
         # no-transform запрещает прокси (Next dev rewrite, nginx) сжимать и
-        # буферизовать поток — иначе EventSource в браузере не получает события
+        # буферизовать поток, иначе EventSource в браузере не получает события
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
 
