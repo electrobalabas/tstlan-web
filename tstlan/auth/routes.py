@@ -99,6 +99,5 @@ async def list_users_endpoint(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[UserSummary]:
     return [
-        UserSummary(login=user.login, role=user.role)
-        for user in await list_users(db)
+        UserSummary(login=user.login, role=user.role) for user in await list_users(db)
     ]
