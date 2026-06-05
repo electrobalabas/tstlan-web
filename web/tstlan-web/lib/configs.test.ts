@@ -7,8 +7,8 @@ import {
   draftToPayload,
   emptyDraft,
   hasErrors,
-  nextVariableIndex,
   validateConfigForm,
+  variableOffsets,
   type ConfigFormDraft,
 } from "@/lib/configs";
 import type { ConfigDetail, UserSummary } from "@/lib/api";
@@ -31,7 +31,7 @@ function validDraft(over: Partial<ConfigFormDraft> = {}): ConfigFormDraft {
     inputRegisters: "0",
     params: {},
     variables: [
-      { index: 0, name: "voltage", ctype: "f32", graph: true, category: "" },
+      { name: "voltage", ctype: "f32", graph: true, category: "" },
     ],
     ...over,
   };
@@ -131,9 +131,9 @@ describe("validateConfigForm", () => {
     const errors = validateConfigForm(
       validDraft({
         variables: [
-          { index: 0, name: "voltage", ctype: "f32", graph: false, category: "" },
-          { index: 1, name: "", ctype: "u8", graph: false, category: "" },
-          { index: 2, name: "voltage", ctype: "u8", graph: false, category: "" },
+          { name: "voltage", ctype: "f32", graph: false, category: "" },
+          { name: "", ctype: "u8", graph: false, category: "" },
+          { name: "voltage", ctype: "u8", graph: false, category: "" },
         ],
       }),
     );
@@ -150,15 +150,16 @@ describe("hasErrors", () => {
   });
 });
 
-describe("nextVariableIndex", () => {
-  it("даёт следующий адрес после максимального", () => {
-    expect(nextVariableIndex([])).toBe(0);
+describe("variableOffsets", () => {
+  it("накапливает смещение последовательно по размеру типа", () => {
+    expect(variableOffsets([])).toEqual([]);
     expect(
-      nextVariableIndex([
-        { index: 0, name: "a", ctype: "bit", graph: false, category: "" },
-        { index: 34, name: "b", ctype: "u8", graph: false, category: "" },
+      variableOffsets([
+        { name: "a", ctype: "bit", graph: false, category: "" },
+        { name: "b", ctype: "u32", graph: false, category: "" },
+        { name: "c", ctype: "f32", graph: false, category: "" },
       ]),
-    ).toBe(35);
+    ).toEqual([0, 1, 5]);
   });
 });
 
@@ -169,7 +170,7 @@ describe("draftToPayload", () => {
         ip: " 10.0.0.1 ",
         port: "1234",
         variables: [
-          { index: 5, name: " temp ", ctype: "f32", graph: true, category: " A " },
+          { name: " temp ", ctype: "f32", graph: true, category: " A " },
         ],
       }),
     );
@@ -185,7 +186,6 @@ describe("draftToPayload", () => {
       params: {},
     });
     expect(payload.variables[0]).toEqual({
-      index: 5,
       name: "temp",
       ctype: "f32",
       graph: true,
@@ -202,7 +202,7 @@ describe("draftToPayload", () => {
     expect(payload.connection.port).toBeNull();
   });
 
-  it("для modbus пишет карту регистров и сохраняет адрес переменной", () => {
+  it("для modbus пишет карту регистров и переменные списком", () => {
     const payload = draftToPayload(
       validDraft({
         transport: "modbus_udp",
@@ -211,7 +211,7 @@ describe("draftToPayload", () => {
         ipRequest: "device_get_ip",
         holdingRegisters: "76",
         variables: [
-          { index: 34, name: "reg", ctype: "bit", graph: false, category: "" },
+          { name: "reg", ctype: "bit", graph: false, category: "" },
         ],
       }),
     );
@@ -224,7 +224,6 @@ describe("draftToPayload", () => {
       input_registers: 0,
     });
     expect(payload.variables[0]).toEqual({
-      index: 34,
       name: "reg",
       ctype: "bit",
       graph: false,
@@ -263,7 +262,7 @@ describe("configToDraft", () => {
           params: {},
         },
         variables: [
-          { index: 34, name: "v", ctype: "u32", graph: false, category: "" },
+          { name: "v", ctype: "u32", graph: false, category: "" },
         ],
       },
       ...over,
@@ -275,17 +274,18 @@ describe("configToDraft", () => {
     expect(draft.transport).toBe("modbus_udp");
     expect(draft.ipRequest).toBe("device_get_ip");
     expect(draft.holdingRegisters).toBe("76");
-    expect(draft.variables[0].index).toBe(34);
+    expect(draft.variables[0].name).toBe("v");
   });
 
-  it("даёт валидный round-trip с draftToPayload и сохраняет индекс", () => {
+  it("даёт валидный round-trip с draftToPayload и сохраняет порядок", () => {
     const source = validDraft({
       transport: "modbus_udp",
       ip: "10.0.0.5",
       port: "502",
       holdingRegisters: "12",
       variables: [
-        { index: 7, name: "reg", ctype: "bit", graph: false, category: "" },
+        { name: "reg", ctype: "bit", graph: false, category: "" },
+        { name: "temp", ctype: "f32", graph: true, category: "A" },
       ],
     });
     const restored = configToDraft(
@@ -297,7 +297,10 @@ describe("configToDraft", () => {
       }),
     );
     expect(validateConfigForm(restored)).toEqual({});
-    expect(restored.variables[0].index).toBe(7);
+    expect(restored.variables.map((variable) => variable.name)).toEqual([
+      "reg",
+      "temp",
+    ]);
   });
 });
 

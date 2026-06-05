@@ -12,6 +12,26 @@ class NetVarCType(StrEnum):
     F32 = "f32"
     F64 = "f64"
 
+    @property
+    def byte_size(self) -> int:
+        """Размер значения в байтах. Переменные лежат в памяти прибора
+        последовательно, поэтому смещение каждой выводится из суммы размеров
+        предыдущих — отдельно хранить адрес не нужно."""
+        return _C_TYPE_BYTE_SIZE[self]
+
+
+_C_TYPE_BYTE_SIZE: dict[NetVarCType, int] = {
+    NetVarCType.BIT: 1,
+    NetVarCType.U8: 1,
+    NetVarCType.I8: 1,
+    NetVarCType.U16: 2,
+    NetVarCType.I16: 2,
+    NetVarCType.U32: 4,
+    NetVarCType.I32: 4,
+    NetVarCType.F32: 4,
+    NetVarCType.F64: 8,
+}
+
 
 class NetVarMode(StrEnum):
     R = "r"

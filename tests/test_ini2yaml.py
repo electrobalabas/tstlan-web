@@ -45,14 +45,18 @@ def test_convert_maps_modbus_connection() -> None:
     assert conn["modbus"]["holding_registers"] == 76
 
 
-def test_convert_preserves_variable_index_and_maps_types() -> None:
+def test_convert_orders_variables_and_drops_index() -> None:
     variables = convert(SAMPLE, "dev")["payload"]["variables"]
-    by_index = {var["index"]: var for var in variables}
-    assert [var["index"] for var in variables] == [0, 34, 36]
-    assert by_index[0]["ctype"] == "bit"
-    assert by_index[36]["ctype"] == "f32"
-    assert by_index[34]["graph"] is True
-    assert by_index[34]["category"] == "Измерения"
+    # `_N` (0, 34, 36) задаёт лишь порядок — в YAML это обычный список без адресов.
+    assert [var["name"] for var in variables] == [
+        "some name 1",
+        "some name 3",
+        "some name 5",
+    ]
+    assert [var["ctype"] for var in variables] == ["bit", "u32", "f32"]
+    assert all("index" not in var for var in variables)
+    assert variables[1]["graph"] is True
+    assert variables[1]["category"] == "Измерения"
 
 
 def test_convert_names_config_from_argument() -> None:

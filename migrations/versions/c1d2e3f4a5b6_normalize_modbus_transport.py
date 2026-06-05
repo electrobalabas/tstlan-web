@@ -1,4 +1,4 @@
-"""normalize modbus transport and backfill variable indexes
+"""normalize modbus transport
 
 Revision ID: c1d2e3f4a5b6
 Revises: a1b2c3d4e5f6
@@ -27,12 +27,7 @@ device_configs = sa.table(
 )
 
 
-def _migrate(
-    transport_map: dict[str, str],
-    *,
-    backfill_index: bool = False,
-    strip_index: bool = False,
-) -> None:
+def _remap_transport(transport_map: dict[str, str]) -> None:
     bind = op.get_bind()
     rows = bind.execute(
         sa.select(device_configs.c.id, device_configs.c.payload)
@@ -41,29 +36,12 @@ def _migrate(
         if not isinstance(raw_payload, dict):
             continue
         payload = cast(dict[str, Any], raw_payload)
-        changed = False
-
         connection = payload.get("connection")
-        if isinstance(connection, dict):
-            conn = cast(dict[str, Any], connection)
-            if conn.get("transport") in transport_map:
-                conn["transport"] = transport_map[conn["transport"]]
-                changed = True
-
-        variables = payload.get("variables")
-        if isinstance(variables, list):
-            for position, item in enumerate(variables):
-                if not isinstance(item, dict):
-                    continue
-                variable = cast(dict[str, Any], item)
-                if backfill_index and "index" not in variable:
-                    variable["index"] = position
-                    changed = True
-                if strip_index and "index" in variable:
-                    del variable["index"]
-                    changed = True
-
-        if changed:
+        if not isinstance(connection, dict):
+            continue
+        conn = cast(dict[str, Any], connection)
+        if conn.get("transport") in transport_map:
+            conn["transport"] = transport_map[conn["transport"]]
             bind.execute(
                 sa.update(device_configs)
                 .where(device_configs.c.id == row_id)
@@ -72,10 +50,8 @@ def _migrate(
 
 
 def upgrade() -> None:
-    _migrate({"modbus": "modbus_tcp"}, backfill_index=True)
+    _remap_transport({"modbus": "modbus_tcp"})
 
 
 def downgrade() -> None:
-    _migrate(
-        {"modbus_tcp": "modbus", "modbus_udp": "modbus"}, strip_index=True
-    )
+    _remap_transport({"modbus_tcp": "modbus", "modbus_udp": "modbus"})

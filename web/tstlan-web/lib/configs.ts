@@ -90,12 +90,36 @@ export function needsNetwork(transport: Transport): boolean {
 }
 
 export type VariableDraft = {
-  index: number;
   name: string;
   ctype: NetVarCType;
   graph: boolean;
   category: string;
 };
+
+// Размер значения в байтах. Зеркалит NetVarCType.byte_size на бэке.
+export const CTYPE_BYTE_SIZE: Record<NetVarCType, number> = {
+  bit: 1,
+  u8: 1,
+  i8: 1,
+  u16: 2,
+  i16: 2,
+  u32: 4,
+  i32: 4,
+  f32: 4,
+  f64: 8,
+};
+
+// Переменные читаются из памяти последовательно: смещение N-й — это сумма
+// размеров всех предыдущих. Отдельный адрес не храним, выводим из порядка и типа.
+export function variableOffsets(variables: VariableDraft[]): number[] {
+  const offsets: number[] = [];
+  let cursor = 0;
+  for (const variable of variables) {
+    offsets.push(cursor);
+    cursor += CTYPE_BYTE_SIZE[variable.ctype];
+  }
+  return offsets;
+}
 
 export type ConfigFormDraft = {
   name: string;
@@ -147,10 +171,6 @@ export function emptyDraft(): ConfigFormDraft {
     params: {},
     variables: [],
   };
-}
-
-export function nextVariableIndex(variables: VariableDraft[]): number {
-  return variables.reduce((max, variable) => Math.max(max, variable.index + 1), 0);
 }
 
 function parseIntStrict(raw: string): number | null {
@@ -272,7 +292,6 @@ export function draftToPayload(draft: ConfigFormDraft): ConfigPayload {
       params: draft.params,
     },
     variables: draft.variables.map((variable) => ({
-      index: variable.index,
       name: variable.name.trim(),
       ctype: variable.ctype,
       graph: variable.graph,
@@ -301,7 +320,6 @@ export function configToDraft(config: ConfigDetail): ConfigFormDraft {
     inputRegisters: String(modbus?.input_registers ?? 0),
     params: connection.params,
     variables: config.payload.variables.map((variable) => ({
-      index: variable.index,
       name: variable.name,
       ctype: variable.ctype,
       graph: variable.graph,

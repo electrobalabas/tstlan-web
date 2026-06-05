@@ -195,7 +195,6 @@ export type ConnectionSettings = {
 };
 
 export type ConfigVar = {
-  index: number;
   name: string;
   ctype: NetVarCType;
   graph: boolean;

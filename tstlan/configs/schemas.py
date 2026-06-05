@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
@@ -50,11 +51,22 @@ class ConnectionSettings(BaseModel):
 class ConfigVar(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    index: int = 0
     name: str
     ctype: NetVarCType
     graph: bool = False
     category: str = ""
+
+
+def variable_offsets(variables: Sequence[ConfigVar]) -> list[int]:
+    """Смещения переменных в памяти прибора. Список упорядочен и читается
+    последовательно, поэтому смещение N-й переменной — это сумма размеров всех
+    предыдущих (размер задаёт ctype). Адрес отдельно не храним."""
+    offsets: list[int] = []
+    cursor = 0
+    for var in variables:
+        offsets.append(cursor)
+        cursor += var.ctype.byte_size
+    return offsets
 
 
 class ConfigPayload(BaseModel):

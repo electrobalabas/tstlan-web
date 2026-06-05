@@ -103,6 +103,9 @@ def _parse_connection(device: configparser.SectionProxy) -> ConnectionSettings:
 
 
 def _parse_variables(section: configparser.SectionProxy) -> list[ConfigVar]:
+    # `_N` в .ini — лишь номер строки (разрежённый). Он задаёт порядок, но в
+    # YAML переменные хранятся обычным списком, а смещение выводится из типа —
+    # поэтому сам номер отбрасываем.
     indices = sorted(
         int(match.group(1))
         for key in section
@@ -115,7 +118,6 @@ def _parse_variables(section: configparser.SectionProxy) -> list[ConfigVar]:
             continue
         variables.append(
             ConfigVar(
-                index=index,
                 name=name,
                 ctype=_map_ctype(section.get(f"type_{index}", "")),
                 graph=section.get(f"graph_{index}", "0").strip() in ("1", "true"),

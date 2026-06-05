@@ -20,17 +20,32 @@ def test_migrations_create_the_expected_schema(tmp_path: Path) -> None:
     }
 
 
-def test_migration_normalizes_legacy_payloads(tmp_path: Path) -> None:
+def test_migration_normalizes_transport_and_drops_variable_index(
+    tmp_path: Path,
+) -> None:
     db_file = tmp_path / "tstlan.db"
     config = _alembic_config(f"sqlite+aiosqlite:///{db_file}")
     command.upgrade(config, "a1b2c3d4e5f6")
 
+    # Легаси-payload: старый транспорт modbus и разрежённые адреса в `index`.
     payload = json.dumps(
         {
             "connection": {"transport": "modbus"},
             "variables": [
-                {"name": "a", "ctype": "bit", "graph": False, "category": ""},
-                {"name": "b", "ctype": "u8", "graph": False, "category": ""},
+                {
+                    "index": 0,
+                    "name": "a",
+                    "ctype": "bit",
+                    "graph": False,
+                    "category": "",
+                },
+                {
+                    "index": 34,
+                    "name": "b",
+                    "ctype": "u8",
+                    "graph": False,
+                    "category": "",
+                },
             ],
         }
     )
@@ -52,20 +67,26 @@ def test_migration_normalizes_legacy_payloads(tmp_path: Path) -> None:
 
     con = sqlite3.connect(db_file)
     try:
-        stored = json.loads(con.execute("select payload from device_configs").fetchone()[0])
+        stored = json.loads(
+            con.execute("select payload from device_configs").fetchone()[0]
+        )
     finally:
         con.close()
     assert stored["connection"]["transport"] == "modbus_tcp"
-    assert [variable["index"] for variable in stored["variables"]] == [0, 1]
+    assert [variable["name"] for variable in stored["variables"]] == ["a", "b"]
+    assert all("index" not in variable for variable in stored["variables"])
 
     command.downgrade(config, "a1b2c3d4e5f6")
     con = sqlite3.connect(db_file)
     try:
-        reverted = json.loads(con.execute("select payload from device_configs").fetchone()[0])
+        reverted = json.loads(
+            con.execute("select payload from device_configs").fetchone()[0]
+        )
     finally:
         con.close()
     assert reverted["connection"]["transport"] == "modbus"
-    assert all("index" not in variable for variable in reverted["variables"])
+    # Исходные адреса не восстановить — индекс раскладывается по позиции.
+    assert [variable["index"] for variable in reverted["variables"]] == [0, 1]
 
 
 def _alembic_config(url: str) -> Config:

@@ -19,8 +19,8 @@ import {
   hasErrors,
   isModbus,
   needsNetwork,
-  nextVariableIndex,
   validateConfigForm,
+  variableOffsets,
   type ConfigFormDraft,
   type VariableDraft,
 } from "@/lib/configs";
@@ -252,6 +252,9 @@ function VariablesSection({
   editable: boolean;
   onChange: (variables: VariableDraft[]) => void;
 }) {
+  // Смещение в памяти выводится из порядка и типа — переменные читаются подряд.
+  const offsets = variableOffsets(variables);
+
   function updateAt(index: number, patch: Partial<VariableDraft>) {
     onChange(
       variables.map((variable, position) =>
@@ -262,13 +265,7 @@ function VariablesSection({
   function add() {
     onChange([
       ...variables,
-      {
-        index: nextVariableIndex(variables),
-        name: "",
-        ctype: "f32",
-        graph: false,
-        category: "",
-      },
+      { name: "", ctype: "f32", graph: false, category: "" },
     ]);
   }
   function removeAt(index: number) {
@@ -286,18 +283,12 @@ function VariablesSection({
           {variables.map((variable, index) => (
             <li key={index} className="space-y-1">
               <div className="grid grid-cols-[3.5rem_1fr_5rem_2rem_1fr_2rem] items-center gap-2">
-                <input
-                  value={String(variable.index)}
-                  onChange={(event) =>
-                    updateAt(index, {
-                      index: Number(event.target.value.replace(/\D/g, "")) || 0,
-                    })
-                  }
-                  disabled={!editable}
-                  title="Адрес"
-                  inputMode="numeric"
-                  className={cn(CELL, "font-mono tabular-nums")}
-                />
+                <span
+                  title="Смещение в памяти (байт)"
+                  className="flex h-8 items-center justify-end px-2 font-mono text-xs tabular-nums text-muted-foreground"
+                >
+                  {offsets[index]}
+                </span>
                 <input
                   value={variable.name}
                   onChange={(event) =>
