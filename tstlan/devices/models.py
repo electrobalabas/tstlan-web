@@ -32,6 +32,8 @@ _INT_RANGES: dict[NetVarCType, tuple[int, int]] = {
     NetVarCType.I16: (-0x8000, 0x7FFF),
     NetVarCType.U32: (0, 0xFFFFFFFF),
     NetVarCType.I32: (-0x80000000, 0x7FFFFFFF),
+    NetVarCType.U64: (0, 0xFFFFFFFFFFFFFFFF),
+    NetVarCType.I64: (-0x8000000000000000, 0x7FFFFFFFFFFFFFFF),
 }
 _FLOAT_TYPES = frozenset({NetVarCType.F32, NetVarCType.F64})
 
