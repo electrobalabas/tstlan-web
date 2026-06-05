@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +17,16 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run ty check
-      - run: uv run pytest
+      - run: >-
+          uv run pytest -n auto --dist loadscope --timeout=60
+          --cov=tstlan --cov-report=term-missing --cov-report=xml
+          --cov-fail-under=80
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
 
   web:
     runs-on: ubuntu-latest
@@ -37,4 +46,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run typecheck
+      - run: pnpm run test
       - run: pnpm run build
