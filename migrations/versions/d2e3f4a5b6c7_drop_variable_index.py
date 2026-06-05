@@ -1,15 +1,3 @@
-"""drop variable index
-
-Переменные хранятся упорядоченным списком, а смещение в памяти выводится из
-порядка и типа (см. NetVarCType.byte_size), поэтому отдельное поле `index`
-у переменных payload больше не нужно.
-
-Revision ID: d2e3f4a5b6c7
-Revises: c1d2e3f4a5b6
-Create Date: 2026-06-05 00:00:00.000000
-
-"""
-
 from collections.abc import Callable, Sequence
 from typing import Any, cast
 
@@ -72,5 +60,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Исходные разрежённые адреса не восстановить — раскладываем по позиции.
     _rewrite_variables(_backfill_index)

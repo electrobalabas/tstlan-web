@@ -8,7 +8,7 @@ from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 @dataclass
 class SimulatedDevice:
-    """Прибор плюс сигналы его сенсоров (имя регистра → стратегия)."""
+    """Тестовый прибор."""
 
     device: Device
     signals: dict[str, Signal]

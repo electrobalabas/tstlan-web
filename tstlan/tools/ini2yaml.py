@@ -1,11 +1,4 @@
-"""Конвертер конфигов TSTLAN из формата `.ini` (cp1251) в YAML.
-
-В `.ini` секция `[device]` хранит параметры подключения парами
-`keyN`=локализованная метка, `valueN`=значение; секция `[vars]` — разрежённый
-список переменных, где индекс `N` в `Name_N`/`Type_N`/`Graph_N`/`Category_N`
-соответствует адресу переменной. Конвертер маппит это в структурированный
-`ConfigPayload` (та же модель, что в БД) и выгружает YAML для импорта.
-"""
+"""Конвертер конфигов TSTLAN из `.ini` (cp1251) в YAML."""
 
 import argparse
 import configparser
@@ -103,9 +96,8 @@ def _parse_connection(device: configparser.SectionProxy) -> ConnectionSettings:
 
 
 def _parse_variables(section: configparser.SectionProxy) -> list[ConfigVar]:
-    # `_N` в .ini — лишь номер строки (разрежённый). Он задаёт порядок, но в
-    # YAML переменные хранятся обычным списком, а смещение выводится из типа —
-    # поэтому сам номер отбрасываем.
+    # `_N` в .ini - лишь номер строки и задаёт порядок; смещение выводится из
+    # типа, поэтому сам номер отбрасывается.
     indices = sorted(
         int(match.group(1))
         for key in section

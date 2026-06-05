@@ -1,11 +1,3 @@
-"""device configs and shares
-
-Revision ID: a1b2c3d4e5f6
-Revises: 5e1414fa1ab4
-Create Date: 2026-06-03 00:00:00.000000
-
-"""
-
 from collections.abc import Sequence
 
 import sqlalchemy as sa

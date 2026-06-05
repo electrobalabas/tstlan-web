@@ -139,11 +139,11 @@ export function SharePanel({
             className={FIELD}
           >
             <option value="">
-              {candidates.length === 0 ? "нет доступных" : "— выберите —"}
+              {candidates.length === 0 ? "нет доступных" : "- выберите -"}
             </option>
             {candidates.map((user) => (
               <option key={user.login} value={user.login}>
-                {user.login} · {ROLE_META[user.role].label}
+                {user.login} ({ROLE_META[user.role].label})
               </option>
             ))}
           </select>

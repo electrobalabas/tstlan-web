@@ -234,7 +234,7 @@ export function ConfigForm({
       {showSubmit && (
         <div className="flex justify-end">
           <Button type="submit" size="lg" disabled={pending}>
-            {pending ? "Сохранение…" : submitLabel}
+            {pending ? "Сохранение..." : submitLabel}
           </Button>
         </div>
       )}
@@ -253,7 +253,7 @@ function VariablesSection({
   editable: boolean;
   onChange: (variables: VariableDraft[]) => void;
 }) {
-  // Смещение в памяти выводится из порядка и типа — переменные читаются подряд.
+  // Смещение в памяти выводится из порядка и типа, переменные читаются подряд.
   const offsets = variableOffsets(variables);
 
   function updateAt(index: number, patch: Partial<VariableDraft>) {
@@ -274,7 +274,7 @@ function VariablesSection({
   }
 
   return (
-    <Section title={`Переменные · ${variables.length}`}>
+    <Section title={`Переменные (${variables.length})`}>
       {variables.length === 0 ? (
         <p className="font-mono text-xs text-muted-foreground">
           переменные не добавлены

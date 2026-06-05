@@ -47,7 +47,6 @@ def test_convert_maps_modbus_connection() -> None:
 
 def test_convert_orders_variables_and_drops_index() -> None:
     variables = convert(SAMPLE, "dev")["payload"]["variables"]
-    # `_N` (0, 34, 36) задаёт лишь порядок — в YAML это обычный список без адресов.
     assert [var["name"] for var in variables] == [
         "some name 1",
         "some name 3",

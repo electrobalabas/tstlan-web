@@ -58,18 +58,14 @@ class ConfigVar(BaseModel):
 
 
 class VarOffset(NamedTuple):
-    """Адрес переменной в памяти прибора: байтовое смещение и, для bit, номер
-    бита внутри байта. Зеркалит NetVarIndex из irsural/unidriver_py."""
+    """Адрес переменной: байтовое смещение и, для bit, номер бита в байте."""
 
     byte: int
     bit: int | None = None
 
 
 def variable_offsets(variables: Sequence[ConfigVar]) -> list[VarOffset]:
-    """Адреса переменных. Список читается последовательно, поэтому смещение
-    выводится из порядка и типа (как calc_next_netvar_index в unidriver_py):
-    не-bit занимает byte_size байт, bit упаковывается по 8 в байт. Адрес
-    отдельно не храним."""
+    """Адреса переменных: смещение выводится из порядка и типа"""
     offsets: list[VarOffset] = []
     prev: VarOffset | None = None
     prev_ctype: NetVarCType | None = None

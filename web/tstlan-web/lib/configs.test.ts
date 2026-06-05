@@ -171,7 +171,7 @@ describe("variableOffsets", () => {
 });
 
 describe("formatOffset", () => {
-  it("показывает байт, а для bit — байт-бит", () => {
+  it("показывает байт, а для bit - байт-бит", () => {
     expect(formatOffset({ byte: 5, bit: null })).toBe("5");
     expect(formatOffset({ byte: 1, bit: 3 })).toBe("1-3");
   });

@@ -1,11 +1,3 @@
-"""csrf token on sessions
-
-Revision ID: 5e1414fa1ab4
-Revises: 77827210b345
-Create Date: 2026-05-30 02:54:35.323699
-
-"""
-
 from collections.abc import Sequence
 
 import sqlalchemy as sa

@@ -50,7 +50,7 @@ export default function ConfigsPage() {
         </Link>
       </header>
 
-      {state.status === "loading" && <Notice>загрузка…</Notice>}
+      {state.status === "loading" && <Notice>загрузка...</Notice>}
       {state.status === "error" && (
         <Notice>не удалось загрузить конфиги</Notice>
       )}

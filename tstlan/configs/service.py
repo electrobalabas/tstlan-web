@@ -33,11 +33,7 @@ class CannotShareWithOwner(Exception):
 
 
 def effective_access(user: User, config: DeviceConfig) -> Access | None:
-    """Доступ пользователя к конфигу или None, если доступа нет.
-
-    `OWNER` означает полный контроль (владелец или администратор): чтение,
-    запись содержимого, переименование, смена видимости, шаринг, удаление.
-    """
+    """Доступ пользователя к конфигу."""
     if user.role is Role.ADMIN or config.owner_id == user.id:
         return Access.OWNER
     permission = _share_permission(user, config)
@@ -64,7 +60,7 @@ def _can_publish(user: User) -> bool:
 def _resolve_create_visibility(
     user: User, visibility: ConfigVisibility
 ) -> ConfigVisibility:
-    # PUBLIC — явный флаг публикации (только dev/admin). Непубличный конфиг при
+    # PUBLIC - явный флаг публикации (только dev/admin). Непубличный конфиг при
     # создании остаётся PRIVATE; метку SHARED выставляет шаринг.
     if visibility is ConfigVisibility.PUBLIC:
         if not _can_publish(user):
@@ -74,7 +70,7 @@ def _resolve_create_visibility(
 
 
 def _normalize_visibility(config: DeviceConfig) -> None:
-    # PRIVATE/SHARED — производная метка от наличия грантов; PUBLIC не трогаем.
+    # PRIVATE/SHARED - производная метка от наличия грантов; PUBLIC не трогаем.
     if config.visibility is ConfigVisibility.PUBLIC:
         return
     config.visibility = (

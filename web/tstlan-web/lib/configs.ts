@@ -73,7 +73,7 @@ const GPIB_MAX = 30;
 const NAME_MAX = 128;
 const DEVICE_TYPE_MAX = 64;
 
-// private/shared — производное состояние от наличия грантов, не выбор
+// private/shared - производное состояние от наличия грантов, не выбор
 // пользователя. Реально выбирается лишь публикация (public), доступная dev/admin.
 export function canPublish(role: Role): boolean {
   return role === "dev" || role === "admin";
@@ -84,7 +84,7 @@ export function isModbus(transport: Transport): boolean {
 }
 
 // IP/порт обязательны для сетевых транспортов (Ethernet и Modbus),
-// GPIB-адрес — для GPIB, имя COM-порта — для COM.
+// GPIB-адрес для GPIB, имя COM-порта для COM.
 export function needsNetwork(transport: Transport): boolean {
   return transport === "ethernet" || isModbus(transport);
 }
@@ -206,7 +206,7 @@ function parseIntStrict(raw: string): number | null {
   return Number(trimmed);
 }
 
-// Счётчики Modbus: пустое поле трактуем как 0, иначе — целое ≥ 0.
+// Счётчики Modbus: пустое поле трактуем как 0, иначе целое >= 0.
 function parseCount(raw: string): number | null {
   if (raw.trim() === "") return 0;
   const value = parseIntStrict(raw);
@@ -234,14 +234,14 @@ export function validateConfigForm(draft: ConfigFormDraft): ConfigFieldErrors {
     }
     const port = parseIntStrict(draft.port);
     if (port === null || port < PORT_MIN || port > PORT_MAX) {
-      errors.port = `порт ${PORT_MIN}–${PORT_MAX}`;
+      errors.port = `порт ${PORT_MIN}-${PORT_MAX}`;
     }
   }
 
   if (draft.transport === "gpib") {
     const addr = parseIntStrict(draft.gpibAddr);
     if (addr === null || addr < GPIB_MIN || addr > GPIB_MAX) {
-      errors.gpibAddr = `адрес GPIB ${GPIB_MIN}–${GPIB_MAX}`;
+      errors.gpibAddr = `адрес GPIB ${GPIB_MIN}-${GPIB_MAX}`;
     }
   }
 
@@ -251,14 +251,14 @@ export function validateConfigForm(draft: ConfigFormDraft): ConfigFieldErrors {
 
   const period = parseIntStrict(draft.pollPeriodMs);
   if (period === null || period <= 0) {
-    errors.pollPeriodMs = "период опроса — целое > 0";
+    errors.pollPeriodMs = "период опроса: целое > 0";
   }
 
   if (isModbus(draft.transport)) {
     const modbus: Partial<Record<ModbusField, string>> = {};
     for (const field of MODBUS_FIELDS) {
       if (parseCount(draft[field.key]) === null) {
-        modbus[field.key] = "целое ≥ 0";
+        modbus[field.key] = "целое >= 0";
       }
     }
     if (Object.keys(modbus).length > 0) {

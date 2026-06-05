@@ -80,7 +80,7 @@ export default function LoginPage() {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" size="lg" disabled={pending} className="w-full">
-          {pending ? "Вход…" : "Войти"}
+          {pending ? "Вход..." : "Войти"}
         </Button>
       </form>
     </section>

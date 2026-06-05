@@ -32,11 +32,7 @@ def _enum_column(enum_cls: type[StrEnum]) -> SAEnum:
 
 
 class DeviceConfig(Base):
-    """Конфигурация-профиль TSTLAN, привязанная к типу прибора.
-
-    Аналог per-device `.ini` десктопного TSTLAN: подключение и вид переменных
-    хранятся в `payload`, владелец и видимость задают доступ.
-    """
+    """Конфиг-профиль прибора: подключение и переменные в payload."""
 
     __tablename__ = "device_configs"
 

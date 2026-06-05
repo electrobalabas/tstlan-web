@@ -68,7 +68,7 @@ export function ConfigEditor({ id }: { id: number }) {
   if (load.status !== "ready") {
     return (
       <Shell>
-        {load.status === "loading" && <Notice>загрузка…</Notice>}
+        {load.status === "loading" && <Notice>загрузка...</Notice>}
         {load.status === "notfound" && <Notice>конфиг не найден</Notice>}
         {load.status === "error" && (
           <Notice>не удалось загрузить конфиг</Notice>
@@ -88,7 +88,7 @@ export function ConfigEditor({ id }: { id: number }) {
         ? {
             name: draft.name,
             // Видимость (публикацию) меняют только dev/admin. Прочие владельцы
-            // не видят чекбокс и не должны переотправлять текущий public —
+            // не видят чекбокс и не должны переотправлять текущий public,
             // иначе бэкенд отклонит сохранение даже имени/payload.
             ...(canPublish(role) ? { visibility: draft.visibility } : {}),
             payload: draftToPayload(draft),

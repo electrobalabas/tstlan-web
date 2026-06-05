@@ -85,7 +85,6 @@ def test_migration_normalizes_transport_and_drops_variable_index(
     finally:
         con.close()
     assert reverted["connection"]["transport"] == "modbus"
-    # Исходные адреса не восстановить — индекс раскладывается по позиции.
     assert [variable["index"] for variable in reverted["variables"]] == [0, 1]
 
 

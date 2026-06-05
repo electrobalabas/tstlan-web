@@ -1,11 +1,3 @@
-"""initial schema
-
-Revision ID: 77827210b345
-Revises: 
-Create Date: 2026-05-30 02:08:48.322409
-
-"""
-
 from collections.abc import Sequence
 
 import sqlalchemy as sa
