@@ -109,16 +109,43 @@ export const CTYPE_BYTE_SIZE: Record<NetVarCType, number> = {
   f64: 8,
 };
 
-// Переменные читаются из памяти последовательно: смещение N-й — это сумма
-// размеров всех предыдущих. Отдельный адрес не храним, выводим из порядка и типа.
-export function variableOffsets(variables: VariableDraft[]): number[] {
-  const offsets: number[] = [];
-  let cursor = 0;
+// Адрес переменной: байтовое смещение и, для bit, номер бита в байте.
+// Зеркалит NetVarIndex из irsural/unidriver_py.
+export type VarOffset = { byte: number; bit: number | null };
+
+// Переменные читаются последовательно: смещение выводится из порядка и типа
+// (как calc_next_netvar_index в unidriver_py). Не-bit занимает byte_size байт,
+// bit пакуется по 8 в байт. Отдельный адрес не храним.
+export function variableOffsets(variables: VariableDraft[]): VarOffset[] {
+  const offsets: VarOffset[] = [];
+  let prev: VarOffset | null = null;
+  let prevCtype: NetVarCType | null = null;
   for (const variable of variables) {
-    offsets.push(cursor);
-    cursor += CTYPE_BYTE_SIZE[variable.ctype];
+    const isBit = variable.ctype === "bit";
+    let cur: VarOffset;
+    if (prev === null || prevCtype === null) {
+      cur = { byte: 0, bit: isBit ? 0 : null };
+    } else if (prevCtype === "bit" && isBit) {
+      cur =
+        (prev.bit ?? 0) >= 7
+          ? { byte: prev.byte + 1, bit: 0 }
+          : { byte: prev.byte, bit: (prev.bit ?? 0) + 1 };
+    } else {
+      cur = {
+        byte: prev.byte + CTYPE_BYTE_SIZE[prevCtype],
+        bit: isBit ? 0 : null,
+      };
+    }
+    offsets.push(cur);
+    prev = cur;
+    prevCtype = variable.ctype;
   }
   return offsets;
+}
+
+// "5" для байтовой переменной, "1-3" (байт-бит) для bit.
+export function formatOffset(offset: VarOffset): string {
+  return offset.bit === null ? String(offset.byte) : `${offset.byte}-${offset.bit}`;
 }
 
 export type ConfigFormDraft = {

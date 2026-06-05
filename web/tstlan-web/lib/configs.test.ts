@@ -6,6 +6,7 @@ import {
   configToDraft,
   draftToPayload,
   emptyDraft,
+  formatOffset,
   hasErrors,
   validateConfigForm,
   variableOffsets,
@@ -151,15 +152,28 @@ describe("hasErrors", () => {
 });
 
 describe("variableOffsets", () => {
-  it("накапливает смещение последовательно по размеру типа", () => {
+  it("пакует биты по 8 в байт и сдвигает по размеру типа", () => {
     expect(variableOffsets([])).toEqual([]);
     expect(
       variableOffsets([
-        { name: "a", ctype: "bit", graph: false, category: "" },
-        { name: "b", ctype: "u32", graph: false, category: "" },
-        { name: "c", ctype: "f32", graph: false, category: "" },
+        { name: "b0", ctype: "bit", graph: false, category: "" },
+        { name: "b1", ctype: "bit", graph: false, category: "" },
+        { name: "r", ctype: "u32", graph: false, category: "" },
+        { name: "f", ctype: "f32", graph: false, category: "" },
       ]),
-    ).toEqual([0, 1, 5]);
+    ).toEqual([
+      { byte: 0, bit: 0 },
+      { byte: 0, bit: 1 },
+      { byte: 1, bit: null },
+      { byte: 5, bit: null },
+    ]);
+  });
+});
+
+describe("formatOffset", () => {
+  it("показывает байт, а для bit — байт-бит", () => {
+    expect(formatOffset({ byte: 5, bit: null })).toBe("5");
+    expect(formatOffset({ byte: 1, bit: 3 })).toBe("1-3");
   });
 });
 

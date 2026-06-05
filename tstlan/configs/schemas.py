@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -57,15 +57,37 @@ class ConfigVar(BaseModel):
     category: str = ""
 
 
-def variable_offsets(variables: Sequence[ConfigVar]) -> list[int]:
-    """Смещения переменных в памяти прибора. Список упорядочен и читается
-    последовательно, поэтому смещение N-й переменной — это сумма размеров всех
-    предыдущих (размер задаёт ctype). Адрес отдельно не храним."""
-    offsets: list[int] = []
-    cursor = 0
+class VarOffset(NamedTuple):
+    """Адрес переменной в памяти прибора: байтовое смещение и, для bit, номер
+    бита внутри байта. Зеркалит NetVarIndex из irsural/unidriver_py."""
+
+    byte: int
+    bit: int | None = None
+
+
+def variable_offsets(variables: Sequence[ConfigVar]) -> list[VarOffset]:
+    """Адреса переменных. Список читается последовательно, поэтому смещение
+    выводится из порядка и типа (как calc_next_netvar_index в unidriver_py):
+    не-bit занимает byte_size байт, bit упаковывается по 8 в байт. Адрес
+    отдельно не храним."""
+    offsets: list[VarOffset] = []
+    prev: VarOffset | None = None
+    prev_ctype: NetVarCType | None = None
     for var in variables:
-        offsets.append(cursor)
-        cursor += var.ctype.byte_size
+        is_bit = var.ctype is NetVarCType.BIT
+        if prev is None or prev_ctype is None:
+            cur = VarOffset(0, 0 if is_bit else None)
+        elif prev_ctype is NetVarCType.BIT and is_bit:
+            assert prev.bit is not None
+            cur = (
+                VarOffset(prev.byte + 1, 0)
+                if prev.bit >= 7
+                else VarOffset(prev.byte, prev.bit + 1)
+            )
+        else:
+            cur = VarOffset(prev.byte + prev_ctype.byte_size, 0 if is_bit else None)
+        offsets.append(cur)
+        prev, prev_ctype = cur, var.ctype
     return offsets
 
 

@@ -16,6 +16,7 @@ import {
   TRANSPORT_META,
   VISIBILITY_META,
   canPublish,
+  formatOffset,
   hasErrors,
   isModbus,
   needsNetwork,
@@ -284,10 +285,10 @@ function VariablesSection({
             <li key={index} className="space-y-1">
               <div className="grid grid-cols-[3.5rem_1fr_5rem_2rem_1fr_2rem] items-center gap-2">
                 <span
-                  title="Смещение в памяти (байт)"
+                  title="Смещение в памяти (байт или байт-бит)"
                   className="flex h-8 items-center justify-end px-2 font-mono text-xs tabular-nums text-muted-foreground"
                 >
-                  {offsets[index]}
+                  {formatOffset(offsets[index])}
                 </span>
                 <input
                   value={variable.name}
