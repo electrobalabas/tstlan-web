@@ -85,3 +85,12 @@ def test_logout_revokes_the_session(client: TestClient) -> None:
     csrf = _login(client).json()["csrf_token"]
     client.post("/auth/logout", headers={"Origin": ORIGIN, "X-CSRF-Token": csrf})
     assert client.get("/auth/me").status_code == 401
+
+
+def test_users_listing_requires_authentication(client: TestClient) -> None:
+    assert client.get("/users").status_code == 401
+
+
+def test_users_listing_returns_login_and_role(client: TestClient) -> None:
+    _login(client)
+    assert client.get("/users").json() == [{"login": "alice", "role": "user"}]

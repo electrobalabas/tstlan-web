@@ -11,16 +11,27 @@ from tstlan.auth.middleware import (
     clear_session_cookie,
     set_session_cookie,
 )
-from tstlan.auth.models import User
-from tstlan.auth.service import authenticate, create_session, revoke_session
+from tstlan.auth.models import Role, User
+from tstlan.auth.service import (
+    authenticate,
+    create_session,
+    list_users,
+    revoke_session,
+)
 from tstlan.config import Settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+users_router = APIRouter(tags=["users"])
 
 
 class LoginRequest(BaseModel):
     login: str
     password: str
+
+
+class UserSummary(BaseModel):
+    login: str
+    role: Role
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
@@ -80,3 +91,14 @@ async def me(
     request: Request, user: Annotated[User, Depends(current_user)]
 ) -> dict[str, Any]:
     return _identity(user, request.state.csrf_token)
+
+
+@users_router.get("/users")
+async def list_users_endpoint(
+    _user: Annotated[User, Depends(current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[UserSummary]:
+    return [
+        UserSummary(login=user.login, role=user.role)
+        for user in await list_users(db)
+    ]

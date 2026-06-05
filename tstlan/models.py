@@ -2,6 +2,7 @@ from enum import StrEnum
 
 
 class NetVarCType(StrEnum):
+    BIT = "bit"
     U8 = "u8"
     I8 = "i8"
     U16 = "u16"

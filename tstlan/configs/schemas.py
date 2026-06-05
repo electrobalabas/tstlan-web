@@ -21,20 +21,36 @@ class Access(StrEnum):
     READ = "read"
 
 
+Transport = Literal["ethernet", "gpib", "com", "modbus_tcp", "modbus_udp"]
+
+
+class ModbusMap(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    discrete_inputs_bytes: int = 0
+    coils_bytes: int = 0
+    holding_registers: int = 0
+    input_registers: int = 0
+
+
 class ConnectionSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    transport: Literal["ethernet", "gpib", "com", "modbus"] = "ethernet"
+    transport: Transport = "ethernet"
     ip: str | None = None
     port: int | None = None
     gpib_addr: int | None = None
     com_name: str | None = None
+    ip_request: str | None = None
     poll_period_ms: int = 200
+    modbus: ModbusMap | None = None
+    params: dict[str, str] = Field(default_factory=dict)
 
 
 class ConfigVar(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    index: int = 0
     name: str
     ctype: NetVarCType
     graph: bool = False

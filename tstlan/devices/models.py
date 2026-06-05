@@ -25,6 +25,7 @@ class ValueValidationError(ValueError):
 
 
 _INT_RANGES: dict[NetVarCType, tuple[int, int]] = {
+    NetVarCType.BIT: (0, 1),
     NetVarCType.U8: (0, 0xFF),
     NetVarCType.I8: (-0x80, 0x7F),
     NetVarCType.U16: (0, 0xFFFF),

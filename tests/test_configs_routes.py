@@ -131,6 +131,17 @@ def test_share_makes_config_shared_and_visible_to_grantee(app: Any) -> None:
     assert bob.get(f"/configs/{config_id}").status_code == 200
 
 
+def test_reshare_updates_permission(app: Any) -> None:
+    dev = Caller(app, "dev")
+    config_id = dev.post("/configs", _make_payload()).json()["id"]
+    dev.post(f"/configs/{config_id}/shares", {"login": "bob", "permission": "read"})
+    updated = dev.post(
+        f"/configs/{config_id}/shares", {"login": "bob", "permission": "write"}
+    )
+    assert updated.status_code == 200
+    assert {"login": "bob", "permission": "write"} in updated.json()["shares"]
+
+
 def test_share_with_unknown_login_is_not_found(app: Any) -> None:
     dev = Caller(app, "dev")
     config_id = dev.post("/configs", _make_payload()).json()["id"]

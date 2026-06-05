@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from tstlan.auth.middleware import AuthCsrfMiddleware
 from tstlan.auth.routes import router as auth_router
+from tstlan.auth.routes import users_router
 from tstlan.config import Settings
 from tstlan.configs.routes import (
     register_exception_handlers as register_config_handlers,
@@ -62,6 +63,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
+    app.include_router(users_router)
     app.include_router(devices_router)
     app.include_router(configs_router)
     register_exception_handlers(app)

@@ -8,6 +8,21 @@ def test_keeps_integer_within_range() -> None:
     assert coerce_value(NetVarCType.U8, 200) == 200
 
 
+def test_accepts_bit_values() -> None:
+    assert coerce_value(NetVarCType.BIT, 0) == 0
+    assert coerce_value(NetVarCType.BIT, 1) == 1
+
+
+def test_rejects_bit_above_range() -> None:
+    with pytest.raises(ValueValidationError):
+        coerce_value(NetVarCType.BIT, 2)
+
+
+def test_fit_clamps_bit_to_unit_range() -> None:
+    assert fit_value(NetVarCType.BIT, 5) == 1
+    assert fit_value(NetVarCType.BIT, -3) == 0
+
+
 def test_accepts_lower_range_bound() -> None:
     assert coerce_value(NetVarCType.I8, -128) == -128
 

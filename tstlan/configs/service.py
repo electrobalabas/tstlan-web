@@ -1,5 +1,6 @@
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from tstlan.auth.models import Role, User
 from tstlan.configs.models import (
@@ -81,6 +82,21 @@ def _normalize_visibility(config: DeviceConfig) -> None:
     )
 
 
+async def _load_detail(db: AsyncSession, config_id: int) -> DeviceConfig:
+    # После мутации перечитываем конфиг с жадной загрузкой owner/shares/grantee,
+    # чтобы сериализация ответа не дёргала ленивые relationship (MissingGreenlet).
+    result = await db.execute(
+        select(DeviceConfig)
+        .where(DeviceConfig.id == config_id)
+        .options(
+            selectinload(DeviceConfig.owner),
+            selectinload(DeviceConfig.shares).selectinload(ConfigShare.grantee),
+        )
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one()
+
+
 async def list_configs(
     db: AsyncSession, user: User
 ) -> list[tuple[DeviceConfig, Access]]:
@@ -137,8 +153,7 @@ async def create_config(
     )
     db.add(config)
     await db.commit()
-    await db.refresh(config)
-    return config
+    return await _load_detail(db, config.id)
 
 
 async def update_config(
@@ -165,7 +180,7 @@ async def update_config(
         config.payload = data.payload.model_dump(mode="json")
 
     await db.commit()
-    await db.refresh(config)
+    config = await _load_detail(db, config_id)
     return config, effective_access(user, config) or access
 
 
@@ -200,8 +215,7 @@ async def share_config(
         )
     _normalize_visibility(config)
     await db.commit()
-    await db.refresh(config)
-    return config, access
+    return await _load_detail(db, config_id), access
 
 
 async def unshare_config(
@@ -216,5 +230,4 @@ async def unshare_config(
     config.shares.remove(share)
     _normalize_visibility(config)
     await db.commit()
-    await db.refresh(config)
-    return config, access
+    return await _load_detail(db, config_id), access
