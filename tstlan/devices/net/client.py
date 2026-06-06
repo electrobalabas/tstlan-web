@@ -1,10 +1,3 @@
-"""Клиентская сторона шва поверх блокирующего TCP-сокета.
-
-`SocketUnidriverIO` реализует `UnidriverIO`, отправляя каждую операцию
-прибору-процессу (см. `server.py`) запрос-ответом. Методы синхронны — этого
-требует шов (`NetVar.get/set` синхронны).
-"""
-
 from typing import Any
 
 from tstlan.devices.net import protocol

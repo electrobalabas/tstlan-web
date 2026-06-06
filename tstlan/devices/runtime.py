@@ -1,10 +1,3 @@
-"""Прибор глазами бэкенда: метаданные + аксессоры переменных через шов.
-
-Значения переменных живут в байтовом буфере прибора за `UnidriverIO`, а не в
-`NetVar.value`. `bind_device` строит аксессоры по раскладке из конфига и
-публикует начальные значения в буфер.
-"""
-
 from collections.abc import Sequence
 from dataclasses import dataclass
 

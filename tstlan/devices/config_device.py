@@ -1,11 +1,3 @@
-"""Построение прибора из конфига: `ConfigPayload` → доменный `Device`.
-
-Конфиг (PR #35) описывает подключение и упорядоченный список переменных
-(`ConfigVar`: имя, тип, graph, category) — но не режим доступа. Для тестового
-прибора режим по умолчанию `RW`: значения и пишутся бэкендом, и читаются обратно.
-Раскладку (offset) по-прежнему выводит `variable_offsets` из порядка и типа.
-"""
-
 from tstlan.configs.schemas import ConfigPayload
 from tstlan.devices.models import Device, DeviceStatus
 from tstlan.models import NetVar, NetVarMode

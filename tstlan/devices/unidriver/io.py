@@ -1,13 +1,3 @@
-"""Шов между бизнес-логикой и прибором — интерфейс `UnidriverIO`.
-
-Форма интерфейса (`read_bytes`/`write_bytes`/`read_bit`/`write_bit`/`tick`/
-`is_connected`) взята из `irsural/unidriver_py` (`unidriver_py/unidriver.py`):
-там это тонкая ctypes-обёртка над `libunidriver.so`. У нас это `Protocol`, под
-который пишутся реализации — `InMemoryUnidriverIO` для юнит-тестов и рантайма на
-macOS, реальный unidriver (Docker/Linux) для интеграции. Сеть и протокол живут
-под этим швом, а не в бизнес-логике.
-"""
-
 from typing import Protocol, runtime_checkable
 
 

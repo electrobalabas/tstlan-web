@@ -1,11 +1,3 @@
-"""NetVar-аксессор поверх `UnidriverIO` — портирован из `unidriver_py/netvar.py`.
-
-Кодирует/декодирует значение переменной по её адресу (байтовое смещение + для
-`bit` номер бита) через шов `UnidriverIO`. Тип берётся из доменного
-`NetVarCType`, раскладку (offset) даёт `configs.variable_offsets` — она
-эквивалентна `calc_next_netvar_index` из unidriver_py.
-"""
-
 import struct
 from collections.abc import Sequence
 
