@@ -88,3 +88,11 @@ async def test_run_ticks_until_stopped() -> None:
     await task
 
     assert _value(simulated, "samples") > 0
+
+
+def test_engine_rejects_duplicate_handles() -> None:
+    a = SimulatedDeviceBuilder("a", "A").sensor("x", NetVarCType.U8, Ramp(1.0)).build()
+    b = SimulatedDeviceBuilder("b", "B").sensor("y", NetVarCType.U8, Ramp(1.0)).build()
+    # оба прибора с handle=0 по умолчанию — схемы перетёрли бы друг друга
+    with pytest.raises(ValueError):
+        SimulationEngine(InMemoryUnidriverIO(), [a, b])

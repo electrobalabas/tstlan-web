@@ -32,6 +32,8 @@ class SimulationEngine:
         self._clock = clock
         self._schemes: dict[int, dict[str, NetVarAccessor]] = {}
         for simulated in self._devices:
+            if simulated.handle in self._schemes:
+                raise ValueError(f"дублирующийся handle прибора: {simulated.handle}")
             scheme = {
                 acc.name: acc
                 for acc in build_scheme(
