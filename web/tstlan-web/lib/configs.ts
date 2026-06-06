@@ -53,6 +53,8 @@ export const CTYPES: NetVarCType[] = [
   "i16",
   "u32",
   "i32",
+  "u64",
+  "i64",
   "f32",
   "f64",
 ];
@@ -105,6 +107,8 @@ export const CTYPE_BYTE_SIZE: Record<NetVarCType, number> = {
   i16: 2,
   u32: 4,
   i32: 4,
+  u64: 8,
+  i64: 8,
   f32: 4,
   f64: 8,
 };
