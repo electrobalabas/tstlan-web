@@ -1,6 +1,7 @@
 from tstlan.devices.simulation.builder import SimulatedDevice
 from tstlan.devices.simulation.catalog import default_simulated_devices
 from tstlan.devices.simulation.engine import SimulationEngine
+from tstlan.devices.unidriver import InMemoryUnidriverIO
 from tstlan.models import NetVarMode
 
 
@@ -29,5 +30,5 @@ def test_calibrator_output_follows_setpoint() -> None:
     output = next(v for v in calibrator.device.variables if v.name == "output")
 
     setpoint.value = 33.0
-    SimulationEngine(catalog).tick(0.0)
+    SimulationEngine(InMemoryUnidriverIO(), catalog).tick(0.0)
     assert abs(output.value - 33.0) < 0.5

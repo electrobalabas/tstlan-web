@@ -12,6 +12,7 @@ class SimulatedDevice:
 
     device: Device
     signals: dict[str, Signal]
+    handle: int = 0
 
 
 class SimulatedDeviceBuilder:

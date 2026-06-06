@@ -39,3 +39,7 @@ def test_is_connected_after_io() -> None:
     assert io.is_connected(1) is False
     io.write_bytes(1, 0, b"\x00")
     assert io.is_connected(1) is True
+
+
+def test_tick_is_a_noop() -> None:
+    assert InMemoryUnidriverIO().tick() is None

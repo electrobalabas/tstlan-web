@@ -17,8 +17,10 @@ from tstlan.configs.routes import router as configs_router
 from tstlan.db import create_engine, create_sessionmaker
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
+from tstlan.devices.runtime import bind_device
 from tstlan.devices.service import DeviceService
 from tstlan.devices.simulation import SimulationEngine, default_simulated_devices
+from tstlan.devices.unidriver import InMemoryUnidriverIO
 
 
 def create_app(*, settings: Settings | None = None) -> FastAPI:
@@ -28,8 +30,10 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
     shutdown_event = asyncio.Event()
+    io = InMemoryUnidriverIO()
     catalog = default_simulated_devices()
-    simulation = SimulationEngine(catalog)
+    runtimes = [bind_device(io, item.device, item.handle) for item in catalog]
+    simulation = SimulationEngine(io, catalog)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -45,7 +49,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
     app.state.settings = settings
-    app.state.devices = DeviceService([item.device for item in catalog])
+    app.state.devices = DeviceService(runtimes)
     app.state.simulation = simulation
     app.state.shutdown_event = shutdown_event
 

@@ -29,7 +29,7 @@ async def session() -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 def devices_service() -> DeviceService:
-    return DeviceService(
+    return DeviceService.from_devices(
         [
             Device(
                 id="dev",

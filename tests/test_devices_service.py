@@ -11,7 +11,7 @@ from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 
 def make_service() -> DeviceService:
-    return DeviceService(
+    return DeviceService.from_devices(
         [
             Device(
                 id="dev",
@@ -30,7 +30,7 @@ def make_service() -> DeviceService:
 
 
 def test_list_devices_returns_all_registered() -> None:
-    service = DeviceService(
+    service = DeviceService.from_devices(
         [
             Device("a", "A", "Эмулятор", True, DeviceStatus.OK),
             Device("b", "B", "Эмулятор", False, DeviceStatus.OFFLINE),
