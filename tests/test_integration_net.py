@@ -1,9 +1,3 @@
-"""Интеграция: прибор как отдельный процесс, бэкенд по реальному TCP-сокету.
-
-Раскладка переменных у прибора и у бэкенда выводится из одного YAML-конфига.
-Маркер `integration` — запуск только локально (`pytest -m integration`), не в CI.
-"""
-
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -11,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from devsim.server import HANDLE, load_payload
 from tstlan.devices.config_device import device_from_config
 from tstlan.devices.net.client import SocketUnidriverIO
-from tstlan.devices.net.server import HANDLE, load_payload
 from tstlan.devices.runtime import attach_device
 from tstlan.devices.service import DeviceService
 
@@ -29,7 +23,7 @@ def device_port() -> Iterator[int]:
         [
             sys.executable,
             "-m",
-            "tstlan.devices.net.server",
+            "devsim",
             "--config",
             str(FIXTURE),
             "--port",

@@ -1,11 +1,3 @@
-"""Тестовый прибор как отдельный процесс: держит буфер за `InMemoryUnidriverIO`
-и отдаёт его по TCP. Раскладку переменных берёт из YAML-конфига (формат
-`ini2yaml` / `ConfigPayload`).
-
-Запуск: `python -m tstlan.devices.net.server --config dev.yaml --port 0`.
-Печатает `listening <host>:<port>`, чтобы родитель узнал выбранный порт.
-"""
-
 import argparse
 import socketserver
 import threading
@@ -16,9 +8,10 @@ import yaml
 
 from tstlan.configs.schemas import ConfigPayload
 from tstlan.devices.config_device import device_from_config
-from tstlan.devices.net import protocol
 from tstlan.devices.runtime import bind_device
 from tstlan.devices.unidriver import InMemoryUnidriverIO
+
+from devsim import protocol
 
 HANDLE = 1
 
@@ -36,7 +29,7 @@ def build_io(payload: ConfigPayload) -> InMemoryUnidriverIO:
 
 class _Handler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
-        server = cast("_DeviceServer", self.server)
+        server = cast("DeviceServer", self.server)
         for line in self.rfile:
             request: dict[str, Any] = protocol.decode(line)
             with server.lock:
@@ -45,7 +38,7 @@ class _Handler(socketserver.StreamRequestHandler):
             self.wfile.flush()
 
 
-class _DeviceServer(socketserver.ThreadingTCPServer):
+class DeviceServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
 
@@ -57,14 +50,12 @@ class _DeviceServer(socketserver.ThreadingTCPServer):
 
 def serve(
     payload: ConfigPayload, host: str = "127.0.0.1", port: int = 0
-) -> _DeviceServer:
-    return _DeviceServer((host, port), build_io(payload))
+) -> DeviceServer:
+    return DeviceServer((host, port), build_io(payload))
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        prog="tstlan-device", description="Тестовый прибор"
-    )
+    parser = argparse.ArgumentParser(prog="devsim", description="Тестовый прибор")
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
@@ -74,7 +65,3 @@ def main(argv: list[str] | None = None) -> None:
     address = server.server_address
     print(f"listening {address[0]}:{address[1]}", flush=True)  # noqa: T201
     server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()
