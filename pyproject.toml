@@ -35,6 +35,12 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+# Интеграция против реального libunidriver.so гоняется только локально в Docker
+# (`make test-integration`); дефолтный прогон и CI берут лишь юнит-тесты.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: требует реальный libunidriver.so (Docker/Linux x86_64, не CI)",
+]
 
 [tool.ruff]
 extend-exclude = ["migrations"]
