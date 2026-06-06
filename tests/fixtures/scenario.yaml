@@ -1,0 +1,15 @@
+name: Прибор
+device_type: sim
+variables:
+  - name: flag
+    ctype: bit
+    mode: rw
+  - name: count
+    ctype: u32
+    mode: rw
+  - name: level
+    ctype: f32
+    mode: rw
+  - name: meter
+    ctype: u32
+    signal: {kind: constant, value: 99}

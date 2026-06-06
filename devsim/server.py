@@ -1,30 +1,24 @@
 import argparse
 import socketserver
 import threading
+import time
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
-
-from tstlan.configs.schemas import ConfigPayload
-from tstlan.devices.config_device import device_from_config
-from tstlan.devices.runtime import bind_device
+from tstlan.devices.scenario import Scenario, device_from_scenario, load_scenario
+from tstlan.devices.simulation import SimulatedDevice, SimulationEngine
 from tstlan.devices.unidriver import InMemoryUnidriverIO
 
 from devsim import protocol
+from devsim.signals import build_signal
 
 HANDLE = 1
+_TICK_SECONDS = 0.5
 
 
-def load_payload(path: Path) -> ConfigPayload:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return ConfigPayload.model_validate(data["payload"])
-
-
-def build_io(payload: ConfigPayload) -> InMemoryUnidriverIO:
-    io = InMemoryUnidriverIO()
-    bind_device(io, device_from_config("sim", "sim", payload), HANDLE)
-    return io
+def build_simulated(scenario: Scenario, device_id: str = "sim") -> SimulatedDevice:
+    signals = {name: build_signal(spec) for name, spec in scenario.signals.items()}
+    return SimulatedDevice(device_from_scenario(scenario, device_id), signals, HANDLE)
 
 
 class _Handler(socketserver.StreamRequestHandler):
@@ -48,20 +42,36 @@ class DeviceServer(socketserver.ThreadingTCPServer):
         self.lock = threading.Lock()
 
 
-def serve(
-    payload: ConfigPayload, host: str = "127.0.0.1", port: int = 0
-) -> DeviceServer:
-    return DeviceServer((host, port), build_io(payload))
+def serve(scenario: Scenario, host: str = "127.0.0.1", port: int = 0) -> DeviceServer:
+    io = InMemoryUnidriverIO()
+    engine = SimulationEngine(io, [build_simulated(scenario)], interval=_TICK_SECONDS)
+    engine.tick(0.0)  # опубликовать стартовые значения сенсоров в буфер
+    server = DeviceServer((host, port), io)
+    _drive(server, engine)
+    return server
+
+
+def _drive(server: DeviceServer, engine: SimulationEngine) -> None:
+    def loop() -> None:
+        start = time.monotonic()
+        while True:
+            with server.lock:
+                engine.tick(time.monotonic() - start)
+            time.sleep(_TICK_SECONDS)
+
+    threading.Thread(target=loop, daemon=True).start()
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="devsim", description="Тестовый прибор")
-    parser.add_argument("--config", type=Path, required=True)
+    parser = argparse.ArgumentParser(
+        prog="devsim", description="Тестовый прибор-эмулятор"
+    )
+    parser.add_argument("--scenario", type=Path, required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
     args = parser.parse_args(argv)
 
-    server = serve(load_payload(args.config), args.host, args.port)
+    server = serve(load_scenario(args.scenario), args.host, args.port)
     address = server.server_address
     print(f"listening {address[0]}:{address[1]}", flush=True)  # noqa: T201
     server.serve_forever()
