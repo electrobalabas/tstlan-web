@@ -1,0 +1,13 @@
+name: Тестовый прибор
+device_type: sim
+payload:
+  connection:
+    transport: ethernet
+    port: 0
+  variables:
+    - name: flag
+      ctype: bit
+    - name: count
+      ctype: u32
+    - name: level
+      ctype: f32
