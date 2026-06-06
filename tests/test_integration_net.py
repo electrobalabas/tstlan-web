@@ -4,8 +4,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from devsim.server import HANDLE
+from tstlan.app import create_app
+from tstlan.config import DeviceEndpoint, Settings
 from tstlan.devices.net.client import SocketUnidriverIO
 from tstlan.devices.runtime import attach_device
 from tstlan.devices.scenario import device_from_scenario, load_scenario
@@ -81,3 +84,14 @@ def test_values_snapshot_over_socket(device_port: int) -> None:
         "level",
         "meter",
     }
+
+
+def test_app_reads_and_writes_device_over_socket(device_port: int) -> None:
+    settings = Settings(
+        database_url="sqlite+aiosqlite:///:memory:",
+        devices=[DeviceEndpoint(id="sim", port=device_port, scenario=FIXTURE)],
+    )
+    client = TestClient(create_app(settings=settings))
+    assert client.get("/devices/sim/values/meter").json()["value"] == 99
+    client.put("/devices/sim/values/count", json={"value": 123})
+    assert client.get("/devices/sim/values/count").json()["value"] == 123
