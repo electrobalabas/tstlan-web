@@ -27,7 +27,14 @@ def publish_values(
         scheme[var.name].set(var.value)
 
 
-def bind_device(io: UnidriverIO, device: Device, handle: int) -> DeviceRuntime:
+def attach_device(io: UnidriverIO, device: Device, handle: int) -> DeviceRuntime:
+    """Аксессоры переменных прибора без записи — бэкенд не трогает его состояние."""
     scheme = {acc.name: acc for acc in build_scheme(io, handle, device.variables)}
-    publish_values(scheme, device.variables)
     return DeviceRuntime(device, scheme)
+
+
+def bind_device(io: UnidriverIO, device: Device, handle: int) -> DeviceRuntime:
+    """Привязать прибор к шву и опубликовать начальные значения в его буфер."""
+    runtime = attach_device(io, device, handle)
+    publish_values(runtime.scheme, device.variables)
+    return runtime
