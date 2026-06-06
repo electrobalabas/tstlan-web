@@ -1,0 +1,32 @@
+name: Тестовый мультиметр
+device_type: multimeter
+variables:
+  - name: voltage
+    ctype: f32
+    signal:
+      kind: sine
+      amplitude: 0.5
+      period: 12.0
+      offset: 220.0
+      plus:
+        - {kind: noise, amplitude: 0.05, seed: 1}
+  - name: current
+    ctype: f32
+    signal:
+      kind: sine
+      amplitude: 0.2
+      period: 7.0
+      offset: 1.5
+      phase: 1.0
+      plus:
+        - {kind: noise, amplitude: 0.02, seed: 2}
+  - name: samples
+    ctype: u32
+    signal: {kind: ramp, rate: 1.0}
+  - name: range
+    ctype: u8
+    mode: rw
+    initial: 1
+  - name: reset
+    ctype: u8
+    mode: w

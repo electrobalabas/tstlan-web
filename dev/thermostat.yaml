@@ -1,0 +1,13 @@
+name: Термостат
+device_type: thermostat
+variables:
+  - name: temperature
+    ctype: f32
+    signal: {kind: random_walk, start: 25.0, step: 0.1, low: 20.0, high: 30.0, seed: 5}
+  - name: heater
+    ctype: u8
+    signal: {kind: square, period: 20.0, low: 0.0, high: 1.0}
+  - name: setpoint
+    ctype: f32
+    mode: rw
+    initial: 25.0

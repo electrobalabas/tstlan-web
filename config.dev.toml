@@ -1,0 +1,16 @@
+# dev-конфиг: бэкенд ходит к процессам-приборам (devsim) по TCP.
+# Поднять эмуляторы (make device-multimeter / device-thermostat), затем
+# uv run tstlan --config config.dev.toml, затем make seed.
+database_url = "sqlite+aiosqlite:///./tstlan.db"
+
+[[devices]]
+id = "multimeter"
+host = "127.0.0.1"
+port = 9001
+scenario = "dev/multimeter.yaml"
+
+[[devices]]
+id = "thermostat"
+host = "127.0.0.1"
+port = 9002
+scenario = "dev/thermostat.yaml"

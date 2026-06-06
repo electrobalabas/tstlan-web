@@ -1,4 +1,17 @@
-.PHONY: test test-integration test-all format can-i-push migrate
+.PHONY: test test-integration test-all format can-i-push migrate \
+	device-multimeter device-thermostat dev-server seed
+
+device-multimeter:
+	uv run python -m devsim --scenario dev/multimeter.yaml --port 9001
+
+device-thermostat:
+	uv run python -m devsim --scenario dev/thermostat.yaml --port 9002
+
+dev-server:
+	uv run tstlan --config config.dev.toml
+
+seed:
+	uv run python -m tstlan.tools.seed --config config.dev.toml
 
 test:
 	uv run pytest -n auto --dist loadscope -ra -q \
