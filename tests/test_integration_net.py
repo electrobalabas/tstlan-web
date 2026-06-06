@@ -11,12 +11,12 @@ from tstlan.app import create_app
 from tstlan.config import DeviceEndpoint, Settings
 from tstlan.devices.net.client import SocketUnidriverIO
 from tstlan.devices.runtime import attach_device
-from tstlan.devices.scenario import device_from_scenario, load_scenario
+from tstlan.devices.device_profile import device_from_profile, load_profile
 from tstlan.devices.service import DeviceService
 
 pytestmark = pytest.mark.integration
 
-FIXTURE = Path(__file__).parent / "fixtures" / "scenario.yaml"
+FIXTURE = Path(__file__).parent / "fixtures" / "device_profile.yaml"
 REPO_ROOT = Path(__file__).parent.parent
 
 
@@ -27,7 +27,7 @@ def device_port() -> Iterator[int]:
             sys.executable,
             "-m",
             "devsim",
-            "--scenario",
+            "--profile",
             str(FIXTURE),
             "--port",
             "0",
@@ -49,7 +49,7 @@ def device_port() -> Iterator[int]:
 
 def _service(port: int) -> DeviceService:
     io = SocketUnidriverIO("127.0.0.1", port)
-    device = device_from_scenario(load_scenario(FIXTURE), "sim")
+    device = device_from_profile(load_profile(FIXTURE), "sim")
     return DeviceService([attach_device(io, device, HANDLE)])
 
 
@@ -89,7 +89,7 @@ def test_values_snapshot_over_socket(device_port: int) -> None:
 def test_app_reads_and_writes_device_over_socket(device_port: int) -> None:
     settings = Settings(
         database_url="sqlite+aiosqlite:///:memory:",
-        devices=[DeviceEndpoint(id="sim", port=device_port, scenario=FIXTURE)],
+        devices=[DeviceEndpoint(id="sim", port=device_port, profile=FIXTURE)],
     )
     client = TestClient(create_app(settings=settings))
     assert client.get("/devices/sim/values/meter").json()["value"] == 99

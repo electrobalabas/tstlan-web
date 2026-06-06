@@ -19,7 +19,7 @@ from tstlan.devices.net.client import LazySocketUnidriverIO
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
 from tstlan.devices.runtime import attach_device, bind_device
-from tstlan.devices.scenario import device_from_scenario, load_scenario
+from tstlan.devices.device_profile import device_from_profile, load_profile
 from tstlan.devices.service import DeviceService
 from tstlan.devices.simulation import SimulationEngine, default_simulated_devices
 from tstlan.devices.unidriver import InMemoryUnidriverIO
@@ -33,7 +33,7 @@ def _build_devices(settings: Settings) -> tuple[DeviceService, SimulationEngine 
         runtimes = [
             attach_device(
                 LazySocketUnidriverIO(endpoint.host, endpoint.port),
-                device_from_scenario(load_scenario(endpoint.scenario), endpoint.id),
+                device_from_profile(load_profile(endpoint.profile), endpoint.id),
                 _DEVICE_HANDLE,
             )
             for endpoint in settings.devices

@@ -10,7 +10,7 @@ class DeviceEndpoint(BaseModel):
     id: str
     host: str = "127.0.0.1"
     port: int
-    scenario: Path
+    profile: Path
 
 
 class Settings(BaseModel):

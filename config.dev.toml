@@ -7,10 +7,10 @@ database_url = "sqlite+aiosqlite:///./tstlan.db"
 id = "multimeter"
 host = "127.0.0.1"
 port = 9001
-scenario = "dev/multimeter.yaml"
+profile = "dev/multimeter.yaml"
 
 [[devices]]
 id = "thermostat"
 host = "127.0.0.1"
 port = 9002
-scenario = "dev/thermostat.yaml"
+profile = "dev/thermostat.yaml"

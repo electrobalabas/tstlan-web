@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from tstlan.app import create_app
 from tstlan.config import DeviceEndpoint, Settings
 
-_SCENARIO = """
+_PROFILE = """
 name: Мультиметр
 device_type: multimeter
 variables:
@@ -39,11 +39,11 @@ def test_simulation_engine_drives_served_values() -> None:
 
 
 def test_external_devices_serve_metadata_without_emulator(tmp_path: Path) -> None:
-    scenario = tmp_path / "mm.yaml"
-    scenario.write_text(_SCENARIO, encoding="utf-8")
+    profile = tmp_path / "mm.yaml"
+    profile.write_text(_PROFILE, encoding="utf-8")
     settings = Settings(
         database_url="sqlite+aiosqlite:///:memory:",
-        devices=[DeviceEndpoint(id="mm", port=1, scenario=scenario)],
+        devices=[DeviceEndpoint(id="mm", port=1, profile=profile)],
     )
     app = create_app(settings=settings)
     # метаданные приборов не трогают сокет -> доступны до подъёма эмулятора

@@ -9,7 +9,7 @@ from tstlan.models import NetVar, NetVarCType, NetVarMode
 
 
 @dataclass
-class Scenario:
+class DeviceProfile:
     name: str
     device_type: str
     variables: list[NetVar]
@@ -17,7 +17,7 @@ class Scenario:
     signals: dict[str, dict[str, Any]]
 
 
-def load_scenario(path: Path) -> Scenario:
+def load_profile(path: Path) -> DeviceProfile:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     variables: list[NetVar] = []
     signals: dict[str, dict[str, Any]] = {}
@@ -33,7 +33,7 @@ def load_scenario(path: Path) -> Scenario:
         )
         if signal is not None:
             signals[raw["name"]] = signal
-    return Scenario(
+    return DeviceProfile(
         name=data["name"],
         device_type=data.get("device_type", "Эмулятор"),
         variables=variables,
@@ -41,14 +41,14 @@ def load_scenario(path: Path) -> Scenario:
     )
 
 
-def device_from_scenario(scenario: Scenario, device_id: str) -> Device:
+def device_from_profile(profile: DeviceProfile, device_id: str) -> Device:
     return Device(
         id=device_id,
-        name=scenario.name,
-        type=scenario.device_type,
+        name=profile.name,
+        type=profile.device_type,
         enabled=True,
         status=DeviceStatus.OK,
-        variables=scenario.variables,
+        variables=profile.variables,
     )
 
 

@@ -2,10 +2,10 @@
 	device-multimeter device-thermostat dev-server seed
 
 device-multimeter:
-	uv run python -m devsim --scenario dev/multimeter.yaml --port 9001
+	uv run python -m devsim --profile dev/multimeter.yaml --port 9001
 
 device-thermostat:
-	uv run python -m devsim --scenario dev/thermostat.yaml --port 9002
+	uv run python -m devsim --profile dev/thermostat.yaml --port 9002
 
 dev-server:
 	uv run tstlan --config config.dev.toml
