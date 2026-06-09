@@ -85,6 +85,8 @@ export type NetVarCType =
   | "i16"
   | "u32"
   | "i32"
+  | "u64"
+  | "i64"
   | "f32"
   | "f64";
 

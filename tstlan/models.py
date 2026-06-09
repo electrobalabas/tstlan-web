@@ -9,6 +9,8 @@ class NetVarCType(StrEnum):
     I16 = "i16"
     U32 = "u32"
     I32 = "i32"
+    U64 = "u64"
+    I64 = "i64"
     F32 = "f32"
     F64 = "f64"
 
@@ -26,6 +28,8 @@ _C_TYPE_BYTE_SIZE: dict[NetVarCType, int] = {
     NetVarCType.I16: 2,
     NetVarCType.U32: 4,
     NetVarCType.I32: 4,
+    NetVarCType.U64: 8,
+    NetVarCType.I64: 8,
     NetVarCType.F32: 4,
     NetVarCType.F64: 8,
 }

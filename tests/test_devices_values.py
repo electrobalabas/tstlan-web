@@ -59,6 +59,15 @@ def test_keeps_float_for_float_type() -> None:
     assert coerce_value(NetVarCType.F64, 1.25) == 1.25
 
 
+def test_accepts_u64_upper_bound() -> None:
+    assert coerce_value(NetVarCType.U64, 0xFFFFFFFFFFFFFFFF) == 0xFFFFFFFFFFFFFFFF
+
+
+def test_rejects_i64_below_range() -> None:
+    with pytest.raises(ValueValidationError):
+        coerce_value(NetVarCType.I64, -(0x8000000000000000) - 1)
+
+
 def test_fit_value_saturates_above_range() -> None:
     assert fit_value(NetVarCType.U8, 300.0) == 255
 

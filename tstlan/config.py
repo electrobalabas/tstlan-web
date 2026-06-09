@@ -4,6 +4,15 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 
+class DeviceEndpoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    host: str = "127.0.0.1"
+    port: int
+    profile: Path
+
+
 class Settings(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 
@@ -18,6 +27,8 @@ class Settings(BaseModel):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    # пусто -> приборы in-process (симуляция); иначе бэкенд ходит к процессам-приборам
+    devices: list[DeviceEndpoint] = []
 
 
 def load_settings(path: Path | None = None) -> Settings:

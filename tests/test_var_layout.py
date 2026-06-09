@@ -6,6 +6,8 @@ def test_byte_size_matches_ctype() -> None:
     assert NetVarCType.BIT.byte_size == 1
     assert NetVarCType.U16.byte_size == 2
     assert NetVarCType.U32.byte_size == 4
+    assert NetVarCType.U64.byte_size == 8
+    assert NetVarCType.I64.byte_size == 8
     assert NetVarCType.F64.byte_size == 8
 
 

@@ -1,0 +1,33 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from tstlan.devices.models import Device
+from tstlan.devices.unidriver import NetVarAccessor, UnidriverIO, build_scheme
+from tstlan.models import NetVar
+
+
+@dataclass
+class DeviceRuntime:
+    device: Device
+    scheme: dict[str, NetVarAccessor]
+
+
+def publish_values(
+    scheme: dict[str, NetVarAccessor], variables: Sequence[NetVar]
+) -> None:
+    """Записать текущие `NetVar.value` в буфер прибора (начальное состояние)."""
+    for var in variables:
+        scheme[var.name].set(var.value)
+
+
+def attach_device(io: UnidriverIO, device: Device, handle: int) -> DeviceRuntime:
+    """Аксессоры переменных прибора без записи — бэкенд не трогает его состояние."""
+    scheme = {acc.name: acc for acc in build_scheme(io, handle, device.variables)}
+    return DeviceRuntime(device, scheme)
+
+
+def bind_device(io: UnidriverIO, device: Device, handle: int) -> DeviceRuntime:
+    """Привязать прибор к шву и опубликовать начальные значения в его буфер."""
+    runtime = attach_device(io, device, handle)
+    publish_values(runtime.scheme, device.variables)
+    return runtime

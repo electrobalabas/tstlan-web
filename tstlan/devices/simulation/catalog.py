@@ -11,7 +11,10 @@ from tstlan.models import NetVarCType
 
 
 def default_simulated_devices() -> list[SimulatedDevice]:
-    return [_multimeter(), _calibrator(), _thermostat()]
+    devices = [_multimeter(), _calibrator(), _thermostat()]
+    for handle, simulated in enumerate(devices, start=1):
+        simulated.handle = handle
+    return devices
 
 
 def _multimeter() -> SimulatedDevice:

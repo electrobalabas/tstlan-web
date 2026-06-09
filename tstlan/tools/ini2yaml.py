@@ -1,5 +1,3 @@
-"""Конвертер конфигов TSTLAN из `.ini` (cp1251) в YAML."""
-
 import argparse
 import configparser
 import re

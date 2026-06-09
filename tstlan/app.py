@@ -15,10 +15,34 @@ from tstlan.configs.routes import (
 )
 from tstlan.configs.routes import router as configs_router
 from tstlan.db import create_engine, create_sessionmaker
+from tstlan.devices.net.client import LazySocketUnidriverIO
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
+from tstlan.devices.runtime import attach_device, bind_device
+from tstlan.devices.device_profile import device_from_profile, load_profile
 from tstlan.devices.service import DeviceService
 from tstlan.devices.simulation import SimulationEngine, default_simulated_devices
+from tstlan.devices.unidriver import InMemoryUnidriverIO
+
+# один процесс-прибор держит один прибор за хэндлом 1 (контракт шва, см. devsim)
+_DEVICE_HANDLE = 1
+
+
+def _build_devices(settings: Settings) -> tuple[DeviceService, SimulationEngine | None]:
+    if settings.devices:
+        runtimes = [
+            attach_device(
+                LazySocketUnidriverIO(endpoint.host, endpoint.port),
+                device_from_profile(load_profile(endpoint.profile), endpoint.id),
+                _DEVICE_HANDLE,
+            )
+            for endpoint in settings.devices
+        ]
+        return DeviceService(runtimes), None
+    io = InMemoryUnidriverIO()
+    catalog = default_simulated_devices()
+    runtimes = [bind_device(io, item.device, item.handle) for item in catalog]
+    return DeviceService(runtimes), SimulationEngine(io, catalog)
 
 
 def create_app(*, settings: Settings | None = None) -> FastAPI:
@@ -28,24 +52,28 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
     shutdown_event = asyncio.Event()
-    catalog = default_simulated_devices()
-    simulation = SimulationEngine(catalog)
+    devices, simulation = _build_devices(settings)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        simulation_task = asyncio.create_task(simulation.run(shutdown_event))
+        task = (
+            asyncio.create_task(simulation.run(shutdown_event))
+            if simulation is not None
+            else None
+        )
         try:
             yield
         finally:
             shutdown_event.set()
-            await simulation_task
+            if task is not None:
+                await task
             await engine.dispose()
 
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
     app.state.settings = settings
-    app.state.devices = DeviceService([item.device for item in catalog])
+    app.state.devices = devices
     app.state.simulation = simulation
     app.state.shutdown_event = shutdown_event
 
