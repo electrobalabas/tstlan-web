@@ -35,4 +35,7 @@ archive.zip
 
 .codspeed
 
+*.log
 build/
+
+.word_templates
