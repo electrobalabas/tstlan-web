@@ -1,13 +1,15 @@
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from devsim.server import HANDLE
 from tstlan.app import create_app
+from tstlan.auth.models import Role
 from tstlan.config import DeviceEndpoint, Settings
 from tstlan.devices.net.client import SocketUnidriverIO
 from tstlan.devices.runtime import attach_device
@@ -86,12 +88,16 @@ def test_values_snapshot_over_socket(device_port: int) -> None:
     }
 
 
-def test_app_reads_and_writes_device_over_socket(device_port: int) -> None:
+def test_app_reads_and_writes_device_over_socket(
+    device_port: int, login_as: Callable[[FastAPI, Role], None]
+) -> None:
     settings = Settings(
         database_url="sqlite+aiosqlite:///:memory:",
         devices=[DeviceEndpoint(id="sim", port=device_port, profile=FIXTURE)],
     )
-    client = TestClient(create_app(settings=settings))
+    app = create_app(settings=settings)
+    login_as(app, Role.DEV)
+    client = TestClient(app)
     assert client.get("/devices/sim/values/meter").json()["value"] == 99
     client.put("/devices/sim/values/count", json={"value": 123})
     assert client.get("/devices/sim/values/count").json()["value"] == 123

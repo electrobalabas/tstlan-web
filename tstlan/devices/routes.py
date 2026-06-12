@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from tstlan.auth.routes import current_user
 from tstlan.devices.models import ValueValidationError
 from tstlan.devices.schemas import (
     DeviceDetail,
@@ -20,7 +21,8 @@ from tstlan.devices.service import (
     VariableNotFound,
 )
 
-router = APIRouter(tags=["devices"])
+# SSE-поток тоже под сессией: EventSource не ставит заголовки, но cookie шлёт
+router = APIRouter(tags=["devices"], dependencies=[Depends(current_user)])
 
 _STREAM_INTERVAL_SECONDS = 1.0
 

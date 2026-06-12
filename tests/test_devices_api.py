@@ -1,12 +1,41 @@
+from collections.abc import Callable
+
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tstlan.app import create_app
+from tstlan.auth.models import Role
+
+LoginAs = Callable[[FastAPI, Role], None]
 
 
-def test_default_catalog_is_served() -> None:
-    response = TestClient(create_app()).get("/devices")
+def test_default_catalog_is_served(login_as: LoginAs) -> None:
+    app = create_app()
+    login_as(app, Role.USER)
+    response = TestClient(app).get("/devices")
     assert response.status_code == 200
     assert response.json()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/devices",
+        "/devices/dev",
+        "/devices/dev/values",
+        "/devices/dev/values/level",
+        "/devices/dev/stream",
+    ],
+)
+def test_read_without_session_returns_401(path: str) -> None:
+    assert TestClient(create_app()).get(path).status_code == 401
+
+
+def test_write_without_session_returns_401() -> None:
+    client = TestClient(create_app())
+    response = client.put("/devices/dev/values/level", json={"value": 1})
+    assert response.status_code == 401
 
 
 def test_list_devices_returns_summaries(devices_client: TestClient) -> None:

@@ -1,9 +1,14 @@
+from collections.abc import Callable
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tstlan.app import create_app
+from tstlan.auth.models import Role
 from tstlan.config import DeviceEndpoint, Settings
+
+LoginAs = Callable[[FastAPI, Role], None]
 
 _PROFILE = """
 name: Мультиметр
@@ -29,8 +34,9 @@ def test_app_boots_with_db_lifespan() -> None:
         assert client.get("/health").json() == {"status": "ok"}
 
 
-def test_simulation_engine_drives_served_values() -> None:
+def test_simulation_engine_drives_served_values(login_as: LoginAs) -> None:
     app = create_app()
+    login_as(app, Role.USER)
     client = TestClient(app)
     endpoint = "/devices/multimeter/values/samples"
     assert client.get(endpoint).json()["value"] == 0
@@ -38,7 +44,9 @@ def test_simulation_engine_drives_served_values() -> None:
     assert client.get(endpoint).json()["value"] == 5
 
 
-def test_external_devices_serve_metadata_without_emulator(tmp_path: Path) -> None:
+def test_external_devices_serve_metadata_without_emulator(
+    tmp_path: Path, login_as: LoginAs
+) -> None:
     profile = tmp_path / "mm.yaml"
     profile.write_text(_PROFILE, encoding="utf-8")
     settings = Settings(
@@ -48,6 +56,7 @@ def test_external_devices_serve_metadata_without_emulator(tmp_path: Path) -> Non
     app = create_app(settings=settings)
     # метаданные приборов не трогают сокет -> доступны до подъёма эмулятора
     assert app.state.simulation is None
+    login_as(app, Role.USER)
     client = TestClient(app)
     assert {device["id"] for device in client.get("/devices").json()} == {"mm"}
     detail = client.get("/devices/mm").json()
