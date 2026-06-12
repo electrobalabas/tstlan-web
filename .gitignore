@@ -34,3 +34,8 @@ archive.zip
 .DS_Store
 
 .codspeed
+
+*.log
+build/
+
+.word_templates

@@ -28,6 +28,21 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      # -W превращает предупреждения Sphinx в ошибки: битые ссылки на модули
+      # и ошибки autodoc-импорта валят сборку, а не проходят молча
+      - run: uv run --with sphinx sphinx-build -W -b html docs build/docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: build/docs
+
   web:
     runs-on: ubuntu-latest
     defaults:
