@@ -133,6 +133,20 @@
 .. autoclass:: tstlan.devices.net.client.LazySocketUnidriverIO
    :members:
 
+История значений
+----------------
+
+.. autoclass:: tstlan.devices.history.Sample
+   :members:
+
+.. autofunction:: tstlan.devices.history.new_history
+
+.. autofunction:: tstlan.devices.history.record_snapshot
+
+.. autofunction:: tstlan.devices.history.device_history
+
+.. autofunction:: tstlan.devices.history.run_sampler
+
 Локальный runtime приборов
 --------------------------
 
