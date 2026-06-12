@@ -17,6 +17,8 @@
 
    uv run python -m tstlan.tools.create_admin --login admin --password secret
 
+Команда сама применяет миграции, отдельный ``make migrate`` перед ней не нужен.
+
 Запустить бэкенд:
 
 .. code-block:: shell
@@ -41,14 +43,19 @@ Dev-приборы
 
 .. code-block:: shell
 
-   make device-multimeter
-   make device-thermostat
-   make dev-server
-   make seed
+   make device-multimeter   # devsim с dev/multimeter.yaml на порту 9001
+   make device-thermostat   # devsim с dev/thermostat.yaml на порту 9002
+   make dev-server          # бэкенд с config.dev.toml
+   make seed                # тестовые пользователи и конфиги
 
 ``config.dev.toml`` подключает бэкенд к TCP-эмуляторам. Если ``devices`` пустой,
 бэкенд поднимает приборы in-process и запускает
 :class:`tstlan.devices.simulation.engine.SimulationEngine`.
+
+``make seed`` создаёт пользователей ``admin``/``admin123`` с ролью ``admin`` и
+``engineer``/``engineer123`` с ролью ``dev``, а затем наполняет конфиги через
+HTTP API - тем же путём, которым ходит браузер, так что сид заодно проверяет
+аутентификацию и CSRF.
 
 Профиль прибора - YAML с именем, типом, переменными и опциональными сигналами.
 Если у переменной есть ``signal`` и не указан ``mode``, она считается read-only.
@@ -77,9 +84,14 @@ Dev-приборы
    make test-integration
    make can-i-push
 
-``make test`` исключает интеграционные тесты с реальным ``libunidriver.so``.
-``make test-integration`` предназначен для локального Docker/Linux x86_64
-окружения.
+``make test`` гоняет только юнит-тесты: дефолтные опции pytest исключают маркер
+``integration``. Так же работает CI.
+
+``make test-integration`` запускает интеграционные тесты: каждый тест поднимает
+:mod:`devsim` отдельным процессом и проверяет обмен через настоящий TCP-сокет на
+loopback. Им не нужно ни оборудование, ни Docker - они работают на любой машине
+разработчика, но исключены из CI, потому что зависят от реальных сокетов и
+таймингов.
 
 Конвертер legacy INI:
 
