@@ -38,6 +38,27 @@ def test_write_without_session_returns_401() -> None:
     assert response.status_code == 401
 
 
+def test_user_role_reads_but_cannot_write(
+    devices_app: FastAPI, login_as: LoginAs
+) -> None:
+    login_as(devices_app, Role.USER)
+    client = TestClient(devices_app)
+    assert client.get("/devices/dev/values/level").status_code == 200
+    response = client.put("/devices/dev/values/level", json={"value": 2})
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("role", [Role.DEV, Role.ADMIN])
+def test_dev_and_admin_roles_can_write(
+    devices_app: FastAPI, login_as: LoginAs, role: Role
+) -> None:
+    login_as(devices_app, role)
+    client = TestClient(devices_app)
+    response = client.put("/devices/dev/values/level", json={"value": 3})
+    assert response.status_code == 200
+    assert response.json()["value"] == 3
+
+
 def test_list_devices_returns_summaries(devices_client: TestClient) -> None:
     response = devices_client.get("/devices")
     assert response.status_code == 200

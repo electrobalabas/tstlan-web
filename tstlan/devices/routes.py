@@ -3,9 +3,10 @@ import json
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from tstlan.auth.models import Role, User
 from tstlan.auth.routes import current_user
 from tstlan.devices.models import ValueValidationError
 from tstlan.devices.schemas import (
@@ -35,8 +36,15 @@ def get_shutdown_event(request: Request) -> asyncio.Event:
     return request.app.state.shutdown_event
 
 
+def require_writer(user: Annotated[User, Depends(current_user)]) -> User:
+    if user.role not in (Role.DEV, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="write requires dev or admin role")
+    return user
+
+
 Service = Annotated[DeviceService, Depends(get_service)]
 ShutdownEvent = Annotated[asyncio.Event, Depends(get_shutdown_event)]
+Writer = Annotated[User, Depends(require_writer)]
 
 
 @router.get("/devices")
@@ -61,7 +69,11 @@ def read_value(device_id: str, name: str, service: Service) -> VariableValue:
 
 @router.put("/devices/{device_id}/values/{name}")
 def write_value(
-    device_id: str, name: str, payload: WriteValueRequest, service: Service
+    device_id: str,
+    name: str,
+    payload: WriteValueRequest,
+    service: Service,
+    _writer: Writer,
 ) -> VariableValue:
     return VariableValue.from_var(service.write_value(device_id, name, payload.value))
 
