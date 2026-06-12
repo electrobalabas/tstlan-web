@@ -1,12 +1,100 @@
+import asyncio
+from collections.abc import Callable
+from pathlib import Path
+
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tstlan.app import create_app
+from tstlan.auth.models import Role
+from tstlan.auth.service import create_user
+from tstlan.config import Settings
+from tstlan.db import create_engine, create_sessionmaker, init_db
+
+LoginAs = Callable[[FastAPI, Role], None]
+
+ORIGIN = "http://app.test"
 
 
-def test_default_catalog_is_served() -> None:
-    response = TestClient(create_app()).get("/devices")
+def test_default_catalog_is_served(login_as: LoginAs) -> None:
+    app = create_app()
+    login_as(app, Role.USER)
+    response = TestClient(app).get("/devices")
     assert response.status_code == 200
     assert response.json()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/devices",
+        "/devices/dev",
+        "/devices/dev/values",
+        "/devices/dev/values/level",
+        "/devices/dev/stream",
+    ],
+)
+def test_read_without_session_returns_401(path: str) -> None:
+    assert TestClient(create_app()).get(path).status_code == 401
+
+
+def test_write_without_session_returns_401() -> None:
+    client = TestClient(create_app())
+    response = client.put("/devices/dev/values/level", json={"value": 1})
+    assert response.status_code == 401
+
+
+def test_user_role_reads_but_cannot_write(
+    devices_app: FastAPI, login_as: LoginAs
+) -> None:
+    login_as(devices_app, Role.USER)
+    client = TestClient(devices_app)
+    assert client.get("/devices/dev/values/level").status_code == 200
+    response = client.put("/devices/dev/values/level", json={"value": 2})
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("role", [Role.DEV, Role.ADMIN])
+def test_dev_and_admin_roles_can_write(
+    devices_app: FastAPI, login_as: LoginAs, role: Role
+) -> None:
+    login_as(devices_app, role)
+    client = TestClient(devices_app)
+    response = client.put("/devices/dev/values/level", json={"value": 3})
+    assert response.status_code == 200
+    assert response.json()["value"] == 3
+
+
+async def _seed_writer(url: str) -> None:
+    engine = create_engine(url)
+    await init_db(engine)
+    sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker() as db:
+        await create_user(db, login="bob", password="pw", role=Role.DEV)
+    await engine.dispose()
+
+
+def test_real_session_reads_and_writes_devices(tmp_path: Path) -> None:
+    # сквозной путь без подмены зависимостей: логин -> cookie -> csrf -> прибор
+    url = f"sqlite+aiosqlite:///{tmp_path / 'devices.db'}"
+    asyncio.run(_seed_writer(url))
+    settings = Settings(database_url=url, allowed_origins=[ORIGIN])
+    with TestClient(create_app(settings=settings)) as client:
+        login = client.post(
+            "/auth/login",
+            json={"login": "bob", "password": "pw"},
+            headers={"Origin": ORIGIN},
+        )
+        csrf_token = login.json()["csrf_token"]
+        assert client.get("/devices").status_code == 200
+        response = client.put(
+            "/devices/multimeter/values/range",
+            json={"value": 2},
+            headers={"Origin": ORIGIN, "X-CSRF-Token": csrf_token},
+        )
+        assert response.status_code == 200
+        assert response.json()["value"] == 2
 
 
 def test_list_devices_returns_summaries(devices_client: TestClient) -> None:
