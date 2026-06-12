@@ -35,11 +35,17 @@
 .. autoclass:: tstlan.auth.middleware.AuthCsrfMiddleware
    :members:
 
+.. autofunction:: tstlan.auth.service.create_user
+
+.. autofunction:: tstlan.auth.service.list_users
+
 .. autofunction:: tstlan.auth.service.authenticate
 
 .. autofunction:: tstlan.auth.service.create_session
 
 .. autofunction:: tstlan.auth.service.resolve_session
+
+.. autofunction:: tstlan.auth.service.revoke_session
 
 Конфиги приборов
 ----------------
@@ -71,11 +77,17 @@
 
 .. autofunction:: tstlan.configs.service.list_configs
 
+.. autofunction:: tstlan.configs.service.get_config
+
 .. autofunction:: tstlan.configs.service.create_config
 
 .. autofunction:: tstlan.configs.service.update_config
 
+.. autofunction:: tstlan.configs.service.delete_config
+
 .. autofunction:: tstlan.configs.service.share_config
+
+.. autofunction:: tstlan.configs.service.unshare_config
 
 Приборы
 -------
@@ -87,6 +99,8 @@
    :members:
 
 .. autofunction:: tstlan.devices.models.coerce_value
+
+.. autofunction:: tstlan.devices.models.fit_value
 
 .. autoclass:: tstlan.devices.device_profile.DeviceProfile
    :members:
