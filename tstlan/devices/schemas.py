@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
+from tstlan.devices.history import Sample
 from tstlan.devices.models import Device, DeviceStatus
 from tstlan.models import NetVar, NetVarCType, NetVarMode
 
@@ -68,3 +69,12 @@ class WriteValueRequest(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 
     value: int | float
+
+
+class HistoryPoint(BaseModel):
+    t: float
+    values: dict[str, int | float]
+
+    @classmethod
+    def from_sample(cls, sample: Sample) -> "HistoryPoint":
+        return cls(t=sample.t, values=sample.values)

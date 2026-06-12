@@ -3,6 +3,8 @@ from itertools import count
 from unittest.mock import patch
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from tstlan.devices.history import (
     MAX_POINTS,
@@ -94,3 +96,26 @@ async def test_sampler_with_stop_set_records_nothing(
     stop.set()
     await run_sampler(history, devices_service, stop)
     assert history == new_history()
+
+
+def test_history_endpoint_returns_recorded_points(
+    devices_app: FastAPI,
+    devices_service: DeviceService,
+    devices_client: TestClient,
+) -> None:
+    record_snapshot(devices_app.state.history, devices_service, clock=lambda: 42.0)
+    response = devices_client.get("/devices/dev/history")
+    assert response.status_code == 200
+    [point] = response.json()
+    assert point["t"] == 42.0
+    assert point["values"]["level"] == 1
+
+
+def test_history_before_first_snapshot_is_empty(devices_client: TestClient) -> None:
+    response = devices_client.get("/devices/dev/history")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_history_of_unknown_device_returns_404(devices_client: TestClient) -> None:
+    assert devices_client.get("/devices/ghost/history").status_code == 404
