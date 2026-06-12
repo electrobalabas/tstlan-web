@@ -81,8 +81,7 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
     if (load.status !== "ready") return;
     const stop = streamValues(
       deviceId,
-      (snapshot) => {
-        const t = Date.now();
+      (snapshot, t) => {
         setValues(Object.fromEntries(snapshot.map((v) => [v.name, v.value])));
         setHistory((prev) => {
           const next = { ...prev };

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
@@ -105,7 +106,10 @@ async def value_event_stream(
             VariableValue.from_var(var).model_dump(mode="json")
             for var in service.read_values(device_id)
         ]
-        yield f"data: {json.dumps(snapshot)}\n\n"
+        # серверное время - единый источник для точек графика: история и поток
+        # должны ложиться на одну ось, не завися от часов браузера
+        event = {"t": time.time(), "values": snapshot}
+        yield f"data: {json.dumps(event)}\n\n"
         await _wait_or_stop(stop, interval)
 
 

@@ -154,14 +154,16 @@ export function writeValue(
 
 export function streamValues(
   deviceId: string,
-  onSnapshot: (snapshot: VariableValue[]) => void,
+  // t - серверное время в миллисекундах: единая ось с историей с бэка
+  onSnapshot: (snapshot: VariableValue[], t: number) => void,
   onError?: () => void,
 ): () => void {
   const source = new EventSource(
     `/api/devices/${encodeURIComponent(deviceId)}/stream`,
   );
   source.onmessage = (event) => {
-    onSnapshot(JSON.parse(event.data) as VariableValue[]);
+    const data = JSON.parse(event.data) as { t: number; values: VariableValue[] };
+    onSnapshot(data.values, Math.round(data.t * 1000));
   };
   source.onerror = () => onError?.();
   return () => source.close();
