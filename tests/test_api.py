@@ -34,6 +34,17 @@ def test_app_boots_with_db_lifespan() -> None:
         assert client.get("/health").json() == {"status": "ok"}
 
 
+def test_lifespan_collects_value_history() -> None:
+    settings = Settings(database_url="sqlite+aiosqlite:///:memory:")
+    app = create_app(settings=settings)
+    with TestClient(app):
+        pass
+    # сэмплер успевает снять хотя бы одну точку с каждого прибора каталога
+    assert set(app.state.history) == {"multimeter", "calibrator", "thermostat"}
+    points = app.state.history["multimeter"]
+    assert points[-1].values.keys() >= {"voltage", "current", "range"}
+
+
 def test_simulation_engine_drives_served_values(login_as: LoginAs) -> None:
     app = create_app()
     login_as(app, Role.USER)
