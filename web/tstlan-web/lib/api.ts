@@ -152,6 +152,19 @@ export function writeValue(
   );
 }
 
+export type HistoryPoint = {
+  t: number; // миллисекунды серверного времени, как у точек потока
+  values: Record<string, number>;
+};
+
+export function getHistory(deviceId: string): Promise<HistoryPoint[]> {
+  return request<HistoryPoint[]>(
+    `/devices/${encodeURIComponent(deviceId)}/history`,
+  ).then((points) =>
+    points.map((point) => ({ ...point, t: Math.round(point.t * 1000) })),
+  );
+}
+
 export function streamValues(
   deviceId: string,
   // t - серверное время в миллисекундах: единая ось с историей с бэка

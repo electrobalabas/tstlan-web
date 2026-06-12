@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   ApiError,
   getDevice,
+  getHistory,
   streamValues,
   writeValue,
   type DeviceDetail,
@@ -27,6 +28,7 @@ import {
   type VariableInfo,
 } from "@/lib/api";
 import { MODE_META, STATUS_META } from "@/lib/devices";
+import { seedHistory } from "@/lib/history";
 
 type LoadState =
   | { status: "loading" }
@@ -76,6 +78,22 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
       active = false;
     };
   }, [deviceId]);
+
+  useEffect(() => {
+    if (load.status !== "ready") return;
+    let active = true;
+    getHistory(deviceId)
+      .then((points) => {
+        if (!active || points.length === 0) return;
+        setHistory((prev) => seedHistory(prev, points, MAX_POINTS));
+      })
+      .catch(() => {
+        // история не критична: график начнётся с живого потока
+      });
+    return () => {
+      active = false;
+    };
+  }, [deviceId, load.status]);
 
   useEffect(() => {
     if (load.status !== "ready") return;
