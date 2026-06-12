@@ -1,4 +1,6 @@
+import asyncio
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -6,8 +8,13 @@ from fastapi.testclient import TestClient
 
 from tstlan.app import create_app
 from tstlan.auth.models import Role
+from tstlan.auth.service import create_user
+from tstlan.config import Settings
+from tstlan.db import create_engine, create_sessionmaker, init_db
 
 LoginAs = Callable[[FastAPI, Role], None]
+
+ORIGIN = "http://app.test"
 
 
 def test_default_catalog_is_served(login_as: LoginAs) -> None:
@@ -57,6 +64,37 @@ def test_dev_and_admin_roles_can_write(
     response = client.put("/devices/dev/values/level", json={"value": 3})
     assert response.status_code == 200
     assert response.json()["value"] == 3
+
+
+async def _seed_writer(url: str) -> None:
+    engine = create_engine(url)
+    await init_db(engine)
+    sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker() as db:
+        await create_user(db, login="bob", password="pw", role=Role.DEV)
+    await engine.dispose()
+
+
+def test_real_session_reads_and_writes_devices(tmp_path: Path) -> None:
+    # сквозной путь без подмены зависимостей: логин -> cookie -> csrf -> прибор
+    url = f"sqlite+aiosqlite:///{tmp_path / 'devices.db'}"
+    asyncio.run(_seed_writer(url))
+    settings = Settings(database_url=url, allowed_origins=[ORIGIN])
+    with TestClient(create_app(settings=settings)) as client:
+        login = client.post(
+            "/auth/login",
+            json={"login": "bob", "password": "pw"},
+            headers={"Origin": ORIGIN},
+        )
+        csrf_token = login.json()["csrf_token"]
+        assert client.get("/devices").status_code == 200
+        response = client.put(
+            "/devices/multimeter/values/range",
+            json={"value": 2},
+            headers={"Origin": ORIGIN, "X-CSRF-Token": csrf_token},
+        )
+        assert response.status_code == 200
+        assert response.json()["value"] == 2
 
 
 def test_list_devices_returns_summaries(devices_client: TestClient) -> None:
