@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ChartLineIcon,
+  CheckIcon,
   PlusIcon,
   TrashIcon,
 } from "@phosphor-icons/react/ssr";
@@ -48,10 +49,12 @@ export function ConfigForm({
   pending: boolean;
   error: string | null;
   submitLabel: string;
-  onSubmit: (draft: ConfigFormDraft) => void;
+  // Резолвится true при успешном сохранении - тогда кнопка подтверждает отклик.
+  onSubmit: (draft: ConfigFormDraft) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState<ConfigFormDraft>(initial);
   const [showErrors, setShowErrors] = useState(false);
+  const [saved, setSaved] = useState(false);
   const errors = useMemo(() => validateConfigForm(draft), [draft]);
 
   const metaEditable = mode === "create" || mode === "owner";
@@ -60,14 +63,20 @@ export function ConfigForm({
   const showSubmit = mode !== "read";
 
   function update(patch: Partial<ConfigFormDraft>) {
+    // Любая правка снимает подтверждение: данные снова разошлись с сохранёнными.
+    setSaved(false);
     setDraft((prev) => ({ ...prev, ...patch }));
   }
 
-  function onFormSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setShowErrors(true);
     if (hasErrors(errors)) return;
-    onSubmit(draft);
+    setSaved(false);
+    if (await onSubmit(draft)) {
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    }
   }
 
   const at = (value?: string) => (showErrors ? value : undefined);
@@ -232,9 +241,28 @@ export function ConfigForm({
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {showSubmit && (
-        <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={pending}>
-            {pending ? "Сохранение..." : submitLabel}
+        <div className="flex justify-end" aria-live="polite">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={pending}
+            className={cn(
+              "min-w-36",
+              saved &&
+                !pending &&
+                "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600 dark:bg-emerald-600",
+            )}
+          >
+            {pending ? (
+              "Сохранение..."
+            ) : saved ? (
+              <span className="flex items-center gap-1.5 duration-200 animate-in fade-in zoom-in-95">
+                <CheckIcon weight="bold" />
+                Сохранено
+              </span>
+            ) : (
+              submitLabel
+            )}
           </Button>
         </div>
       )}

@@ -20,8 +20,8 @@ export default function NewConfigPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(draft: ConfigFormDraft) {
-    if (csrf === null) return;
+  async function submit(draft: ConfigFormDraft): Promise<boolean> {
+    if (csrf === null) return false;
     setPending(true);
     setError(null);
     try {
@@ -35,9 +35,11 @@ export default function NewConfigPage() {
         csrf,
       );
       router.push(`/configs/${created.id}`);
+      return true;
     } catch (cause) {
       setError(describeSaveError(cause));
       setPending(false);
+      return false;
     }
   }
 

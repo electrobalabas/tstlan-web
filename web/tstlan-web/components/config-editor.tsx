@@ -79,8 +79,8 @@ export function ConfigEditor({ id }: { id: number }) {
 
   const { config } = load;
 
-  async function submit(draft: ConfigFormDraft) {
-    if (csrf === null) return;
+  async function submit(draft: ConfigFormDraft): Promise<boolean> {
+    if (csrf === null) return false;
     setPending(true);
     setError(null);
     const body =
@@ -96,8 +96,10 @@ export function ConfigEditor({ id }: { id: number }) {
         : { payload: draftToPayload(draft) };
     try {
       setLoad({ status: "ready", config: await updateConfig(id, body, csrf) });
+      return true;
     } catch (cause) {
       setError(describeSaveError(cause));
+      return false;
     } finally {
       setPending(false);
     }
