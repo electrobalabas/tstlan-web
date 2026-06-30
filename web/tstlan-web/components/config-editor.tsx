@@ -18,10 +18,10 @@ import {
   type ConfigDetail,
 } from "@/lib/api";
 import {
-  ACCESS_META,
   VISIBILITY_META,
   canPublish,
   configToDraft,
+  describeConfigAccess,
   draftToPayload,
   type ConfigFormDraft,
 } from "@/lib/configs";
@@ -181,7 +181,11 @@ function Header({ config }: { config: ConfigDetail }) {
         <span className="ml-auto text-xs text-muted-foreground">
           {config.owner_login}
           <span className="ml-1.5 text-muted-foreground/60 uppercase">
-            {ACCESS_META[config.access].label}
+            {describeConfigAccess(
+              config.access,
+              config.visibility,
+              config.shares.length,
+            )}
           </span>
         </span>
       </div>
