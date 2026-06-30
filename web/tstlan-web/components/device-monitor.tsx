@@ -24,14 +24,17 @@ import {
 import { cn } from "@/lib/utils";
 import {
   ApiError,
+  getConfig,
   getDevice,
   getHistory,
+  listConfigs,
   streamValues,
   writeValue,
   type DeviceDetail,
   type NetVarCType,
   type VariableInfo,
 } from "@/lib/api";
+import { graphSelection, pickDeviceConfig } from "@/lib/device-graph";
 import { MODE_META, STATUS_META } from "@/lib/devices";
 import { seedHistory } from "@/lib/history";
 
@@ -108,6 +111,36 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
       active = false;
     };
   }, [deviceId, load.status]);
+
+  // Прибор «примеряет» флаги graph совпадающего конфига: помеченные переменные
+  // строятся по умолчанию. Конфиги и приборы разъединены, поэтому связываем их
+  // здесь по device_type == id прибора, не трогая ручной выбор пользователя.
+  useEffect(() => {
+    if (load.status !== "ready") return;
+    const device = load.device;
+    let active = true;
+    listConfigs()
+      .then((summaries) => {
+        const match = pickDeviceConfig(summaries, device.id);
+        if (match === null) return;
+        return getConfig(match.id).then((config) => {
+          if (!active) return;
+          const names = graphSelection(
+            config.payload.variables,
+            device.variables.map((variable) => variable.name),
+          );
+          if (names.size > 0) {
+            setSelected((prev) => (prev.size > 0 ? prev : names));
+          }
+        });
+      })
+      .catch(() => {
+        // дефолтный выбор не критичен: пользователь добавит линии вручную
+      });
+    return () => {
+      active = false;
+    };
+  }, [deviceId, load.status, load]);
 
   useEffect(() => {
     if (load.status !== "ready") return;
