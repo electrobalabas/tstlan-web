@@ -18,8 +18,8 @@ from tstlan.devices.service import DeviceService
 
 pytestmark = pytest.mark.integration
 
-FIXTURE = Path(__file__).parent / "fixtures" / "device_profile.yaml"
-REPO_ROOT = Path(__file__).parent.parent
+FIXTURE = Path(__file__).parents[1] / "fixtures" / "device_profile.yaml"
+REPO_ROOT = Path(__file__).parents[2]
 
 
 @pytest.fixture
