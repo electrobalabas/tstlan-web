@@ -9,6 +9,9 @@ from tstlan.auth.models import Role, User
 from tstlan.auth.service import create_user
 from tstlan.config import Settings, load_settings
 from tstlan.db import create_engine, create_sessionmaker, run_migrations
+from tstlan.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 async def add_admin(db: AsyncSession, login: str, password: str) -> User:
@@ -16,8 +19,11 @@ async def add_admin(db: AsyncSession, login: str, password: str) -> User:
         await db.execute(select(User).where(User.login == login))
     ).scalar_one_or_none()
     if existing is not None:
+        logger.warning("admin creation rejected", extra={"login": login})
         raise SystemExit(f"пользователь {login!r} уже существует")
-    return await create_user(db, login=login, password=password, role=Role.ADMIN)
+    user = await create_user(db, login=login, password=password, role=Role.ADMIN)
+    logger.info("admin created", extra={"login": login})
+    return user
 
 
 async def _add_admin(settings: Settings, login: str, password: str) -> None:
