@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,6 +12,9 @@ from tstlan.configs.models import (
     SharePermission,
 )
 from tstlan.configs.schemas import Access, ConfigCreate, ConfigUpdate, ShareRequest
+from tstlan.logging_setup import get_service_logger, log_event
+
+logger = get_service_logger("configs")
 
 
 class ConfigNotFound(Exception):
@@ -64,6 +69,14 @@ def _resolve_create_visibility(
     # создании остаётся PRIVATE; метку SHARED выставляет шаринг.
     if visibility is ConfigVisibility.PUBLIC:
         if not _can_publish(user):
+            log_event(
+                logger,
+                logging.WARNING,
+                "configs.publish.rejected",
+                login=user.login,
+                user_id=user.id,
+                role=user.role,
+            )
             raise PublishNotAllowed(user.login)
         return ConfigVisibility.PUBLIC
     return ConfigVisibility.PRIVATE
@@ -122,6 +135,15 @@ async def list_configs(
         access = effective_access(user, config)
         if access is not None:
             result.append((config, access))
+    log_event(
+        logger,
+        logging.DEBUG,
+        "configs.listed",
+        login=user.login,
+        user_id=user.id,
+        role=user.role,
+        count=len(result),
+    )
     return result
 
 
@@ -130,9 +152,18 @@ async def get_config(
 ) -> tuple[DeviceConfig, Access]:
     config = await db.get(DeviceConfig, config_id)
     if config is None:
+        log_event(logger, logging.WARNING, "configs.not_found", config_id=config_id)
         raise ConfigNotFound(config_id)
     access = effective_access(user, config)
     if access is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.access.denied",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+        )
         raise ConfigAccessDenied(config_id)
     return config, access
 
@@ -149,7 +180,17 @@ async def create_config(
     )
     db.add(config)
     await db.commit()
-    return await _load_detail(db, config.id)
+    config = await _load_detail(db, config.id)
+    log_event(
+        logger,
+        logging.INFO,
+        "configs.created",
+        config_id=config.id,
+        login=user.login,
+        user_id=user.id,
+        visibility=config.visibility,
+    )
+    return config
 
 
 async def update_config(
@@ -158,13 +199,40 @@ async def update_config(
     config, access = await get_config(db, user, config_id)
     wants_manage = data.name is not None or data.visibility is not None
     if wants_manage and access is not Access.OWNER:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.update.rejected",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+            reason="manage_requires_owner",
+        )
         raise ConfigAccessDenied(config_id)
     if data.payload is not None and access not in (Access.OWNER, Access.WRITE):
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.update.rejected",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+            reason="payload_requires_write",
+        )
         raise ConfigAccessDenied(config_id)
 
     if data.visibility is not None:
         if data.visibility is ConfigVisibility.PUBLIC:
             if not _can_publish(user):
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "configs.publish.rejected",
+                    config_id=config_id,
+                    login=user.login,
+                    user_id=user.id,
+                    role=user.role,
+                )
                 raise PublishNotAllowed(user.login)
             config.visibility = ConfigVisibility.PUBLIC
         else:
@@ -177,15 +245,40 @@ async def update_config(
 
     await db.commit()
     config = await _load_detail(db, config_id)
+    log_event(
+        logger,
+        logging.INFO,
+        "configs.updated",
+        config_id=config_id,
+        login=user.login,
+        user_id=user.id,
+        access=access,
+    )
     return config, effective_access(user, config) or access
 
 
 async def delete_config(db: AsyncSession, user: User, config_id: int) -> None:
     config, access = await get_config(db, user, config_id)
     if access is not Access.OWNER:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.delete.rejected",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+        )
         raise ConfigAccessDenied(config_id)
     await db.delete(config)
     await db.commit()
+    log_event(
+        logger,
+        logging.INFO,
+        "configs.deleted",
+        config_id=config_id,
+        login=user.login,
+        user_id=user.id,
+    )
 
 
 async def share_config(
@@ -193,13 +286,40 @@ async def share_config(
 ) -> tuple[DeviceConfig, Access]:
     config, access = await get_config(db, user, config_id)
     if access is not Access.OWNER:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.share.rejected",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+            reason="owner_required",
+        )
         raise ConfigAccessDenied(config_id)
     grantee = (
         await db.execute(select(User).where(User.login == req.login))
     ).scalar_one_or_none()
     if grantee is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.share.rejected",
+            config_id=config_id,
+            login=user.login,
+            grantee=req.login,
+            reason="grantee_not_found",
+        )
         raise GranteeNotFound(req.login)
     if grantee.id == config.owner_id:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.share.rejected",
+            config_id=config_id,
+            login=user.login,
+            grantee=req.login,
+            reason="grantee_is_owner",
+        )
         raise CannotShareWithOwner(req.login)
 
     existing = next((s for s in config.shares if s.grantee_id == grantee.id), None)
@@ -211,6 +331,16 @@ async def share_config(
         )
     _normalize_visibility(config)
     await db.commit()
+    log_event(
+        logger,
+        logging.INFO,
+        "configs.shared",
+        config_id=config_id,
+        login=user.login,
+        user_id=user.id,
+        grantee=req.login,
+        permission=req.permission,
+    )
     return await _load_detail(db, config_id), access
 
 
@@ -219,11 +349,37 @@ async def unshare_config(
 ) -> tuple[DeviceConfig, Access]:
     config, access = await get_config(db, user, config_id)
     if access is not Access.OWNER:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.unshare.rejected",
+            config_id=config_id,
+            login=user.login,
+            user_id=user.id,
+        )
         raise ConfigAccessDenied(config_id)
     share = next((s for s in config.shares if s.grantee.login == login), None)
     if share is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "configs.unshare.rejected",
+            config_id=config_id,
+            login=user.login,
+            grantee=login,
+            reason="grantee_not_found",
+        )
         raise GranteeNotFound(login)
     config.shares.remove(share)
     _normalize_visibility(config)
     await db.commit()
+    log_event(
+        logger,
+        logging.INFO,
+        "configs.unshared",
+        config_id=config_id,
+        login=user.login,
+        user_id=user.id,
+        grantee=login,
+    )
     return await _load_detail(db, config_id), access
