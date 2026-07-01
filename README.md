@@ -124,9 +124,17 @@ allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 ```sh
 make test         # pytest
+make test-postgres # PostgreSQL migrations against docker compose
 make format       # ruff format + ruff check --fix
 make can-i-push   # ruff (format+check) + ty + pytest
 make migrate      # alembic upgrade head
+```
+
+PostgreSQL tests use `docker-compose.test.yml` and run only on demand:
+
+```sh
+make test-postgres
+make postgres-down
 ```
 
 Фронтенд (`web/tstlan-web`):
