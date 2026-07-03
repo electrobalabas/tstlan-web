@@ -43,5 +43,20 @@ markers = [
     "postgres: PostgreSQL-backed tests that require TEST_POSTGRES_DATABASE_URL",
 ]
 
+[tool.coverage.run]
+branch = true
+source = ["tstlan"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.coverage.html]
+directory = "htmlcov"
+
 [tool.ruff]
 extend-exclude = ["migrations"]
