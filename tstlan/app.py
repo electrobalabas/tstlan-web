@@ -24,13 +24,16 @@ from tstlan.devices.device_profile import device_from_profile, load_profile
 from tstlan.devices.service import DeviceService
 from tstlan.devices.simulation import SimulationEngine, default_simulated_devices
 from tstlan.devices.unidriver import InMemoryUnidriverIO
+from tstlan.logging_setup import get_logger
 
 # один процесс-прибор держит один прибор за хэндлом 1 (контракт шва, см. devsim)
 _DEVICE_HANDLE = 1
+logger = get_logger(__name__)
 
 
 def _build_devices(settings: Settings) -> tuple[DeviceService, SimulationEngine | None]:
     if settings.devices:
+        logger.info("building external devices", extra={"count": len(settings.devices)})
         runtimes = [
             attach_device(
                 LazySocketUnidriverIO(endpoint.host, endpoint.port),
@@ -42,6 +45,7 @@ def _build_devices(settings: Settings) -> tuple[DeviceService, SimulationEngine 
         return DeviceService(runtimes), None
     io = InMemoryUnidriverIO()
     catalog = default_simulated_devices()
+    logger.info("building simulated devices", extra={"count": len(catalog)})
     runtimes = [bind_device(io, item.device, item.handle) for item in catalog]
     return DeviceService(runtimes), SimulationEngine(io, catalog)
 
@@ -58,6 +62,10 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        logger.info(
+            "application startup",
+            extra={"simulation_enabled": simulation is not None},
+        )
         task = (
             asyncio.create_task(simulation.run(shutdown_event))
             if simulation is not None
@@ -72,6 +80,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
                 await task
             await sampler
             await engine.dispose()
+            logger.info("application shutdown complete")
 
     app = FastAPI(title="TSTLAN web platform", lifespan=lifespan)
     app.state.engine = engine

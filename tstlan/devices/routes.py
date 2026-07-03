@@ -24,11 +24,13 @@ from tstlan.devices.service import (
     VariableAccessError,
     VariableNotFound,
 )
+from tstlan.logging_setup import get_logger
 
 # SSE-поток тоже под сессией: EventSource не ставит заголовки, но cookie шлёт
 router = APIRouter(tags=["devices"], dependencies=[Depends(current_user)])
 
 _STREAM_INTERVAL_SECONDS = 1.0
+logger = get_logger(__name__)
 
 
 def get_service(request: Request) -> DeviceService:
@@ -45,6 +47,7 @@ def get_history(request: Request) -> History:
 
 def require_writer(user: Annotated[User, Depends(current_user)]) -> User:
     if user.role not in (Role.DEV, Role.ADMIN):
+        logger.warning("device write rejected", extra={"login": user.login})
         raise HTTPException(status_code=403, detail="write requires dev or admin role")
     return user
 
@@ -89,9 +92,14 @@ def write_value(
     name: str,
     payload: WriteValueRequest,
     service: Service,
-    _writer: Writer,
+    writer: Writer,
 ) -> VariableValue:
-    return VariableValue.from_var(service.write_value(device_id, name, payload.value))
+    updated = service.write_value(device_id, name, payload.value)
+    logger.info(
+        "device value written",
+        extra={"device_id": device_id, "name": name, "login": writer.login},
+    )
+    return VariableValue.from_var(updated)
 
 
 async def value_event_stream(
@@ -125,6 +133,7 @@ def stream_values(
     device_id: str, service: Service, stop: ShutdownEvent
 ) -> StreamingResponse:
     service.get_device(device_id)
+    logger.info("device stream opened", extra={"device_id": device_id})
     return StreamingResponse(
         value_event_stream(service, device_id, stop),
         media_type="text/event-stream",

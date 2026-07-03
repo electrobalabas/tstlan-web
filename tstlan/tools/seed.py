@@ -11,9 +11,11 @@ from tstlan.auth.models import User
 from tstlan.auth.service import create_user
 from tstlan.config import Settings, load_settings
 from tstlan.db import create_engine, create_sessionmaker, run_migrations
+from tstlan.logging_setup import get_logger
 from tstlan.tools.seed_data import CONFIGS, USERS, SeedConfig
 
 ClientFactory = Callable[[], httpx.Client]
+logger = get_logger(__name__)
 
 
 async def _insert_users(db: AsyncSession) -> None:
@@ -25,6 +27,7 @@ async def _insert_users(db: AsyncSession) -> None:
             await create_user(
                 db, login=user.login, password=user.password, role=user.role
             )
+            logger.info("seed user created", extra={"login": user.login})
 
 
 def seed_users(settings: Settings) -> None:
@@ -75,8 +78,20 @@ def seed_configs(client_factory: ClientFactory, passwords: dict[str, str]) -> No
             api = ApiClient(http)
             api.login(config.owner, passwords[config.owner])
             config_id = api.create_config(config)
+            logger.info(
+                "seed config created",
+                extra={"config_id": config_id, "owner": config.owner},
+            )
             for grant in config.shares:
                 api.share(config_id, grant.login, grant.permission)
+                logger.info(
+                    "seed config shared",
+                    extra={
+                        "config_id": config_id,
+                        "grantee": grant.login,
+                        "permission": grant.permission,
+                    },
+                )
 
 
 def _http_factory(base_url: str, origin: str) -> ClientFactory:
@@ -104,6 +119,7 @@ def main(argv: list[str] | None = None) -> None:
     seed_users(settings)
     passwords = {user.login: user.password for user in USERS}
     seed_configs(_http_factory(args.base_url, settings.allowed_origins[0]), passwords)
+    logger.info("seed completed", extra={"users": len(USERS), "configs": len(CONFIGS)})
     print(f"сид готов: {len(USERS)} пользователей, {len(CONFIGS)} конфигов")  # noqa: T201
 
 

@@ -27,8 +27,10 @@ from tstlan.configs.service import (
     unshare_config,
     update_config,
 )
+from tstlan.logging_setup import get_logger
 
 router = APIRouter(prefix="/configs", tags=["configs"])
+logger = get_logger(__name__)
 
 Db = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(current_user)]
@@ -48,6 +50,10 @@ async def create_endpoint(
 ) -> ConfigDetail:
     config = await create_config(db, user, payload)
     _, access = await get_config(db, user, config.id)
+    logger.info(
+        "config created",
+        extra={"config_id": config.id, "login": user.login},
+    )
     return ConfigDetail.from_config(config, access)
 
 
@@ -62,12 +68,14 @@ async def update_endpoint(
     config_id: int, payload: ConfigUpdate, user: CurrentUser, db: Db
 ) -> ConfigDetail:
     config, access = await update_config(db, user, config_id, payload)
+    logger.info("config updated", extra={"config_id": config_id, "login": user.login})
     return ConfigDetail.from_config(config, access)
 
 
 @router.delete("/{config_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_endpoint(config_id: int, user: CurrentUser, db: Db) -> Response:
     await delete_config(db, user, config_id)
+    logger.info("config deleted", extra={"config_id": config_id, "login": user.login})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -76,6 +84,15 @@ async def share_endpoint(
     config_id: int, payload: ShareRequest, user: CurrentUser, db: Db
 ) -> ConfigDetail:
     config, access = await share_config(db, user, config_id, payload)
+    logger.info(
+        "config shared",
+        extra={
+            "config_id": config_id,
+            "login": user.login,
+            "grantee": payload.login,
+            "permission": payload.permission,
+        },
+    )
     return ConfigDetail.from_config(config, access)
 
 
@@ -84,6 +101,10 @@ async def unshare_endpoint(
     config_id: int, login: str, user: CurrentUser, db: Db
 ) -> ConfigDetail:
     config, access = await unshare_config(db, user, config_id, login)
+    logger.info(
+        "config unshared",
+        extra={"config_id": config_id, "login": user.login, "grantee": login},
+    )
     return ConfigDetail.from_config(config, access)
 
 
