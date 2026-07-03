@@ -86,6 +86,14 @@ make migrate                        # alembic upgrade head
 uv run alembic revision --autogenerate -m "..."   # новая миграция
 ```
 
+## Логи
+
+Бэкенд пишет JSON-логи через стандартный `logging`. Для доменных сервисов есть
+отдельный namespace `tstlan.services.*`; события пишутся как wide structured
+events: одно событие содержит `event`, `service`, безопасные идентификаторы и
+контекстные поля. Отдельная зависимость `WideEvents` не нужна — текущему проекту
+достаточно стандартного логгера с JSON formatter, без нового рантайм-контракта.
+
 ## Конфигурация
 
 Приоритет: дефолты < `config.toml` < аргументы CLI

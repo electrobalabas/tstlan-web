@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,10 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
+from tstlan.logging_setup import get_service_logger, log_event
+
+logger = get_service_logger("db")
+
 
 class Base(DeclarativeBase):
     pass
@@ -25,6 +30,14 @@ def create_engine(database_url: str) -> AsyncEngine:
         kwargs["connect_args"] = {"check_same_thread": False}
 
     engine = create_async_engine(url, **kwargs)
+    log_event(
+        logger,
+        logging.INFO,
+        "db.engine.created",
+        backend=url.get_backend_name(),
+        driver=url.get_driver_name(),
+        database=url.database,
+    )
     if url.get_backend_name() == "sqlite":
         _enable_sqlite_foreign_keys(engine)
     return engine
@@ -56,3 +69,11 @@ def run_migrations(database_url: str) -> None:
     config.set_main_option("script_location", str(root / "migrations"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "head")
+    url = make_url(database_url)
+    log_event(
+        logger,
+        logging.INFO,
+        "db.migrations.applied",
+        backend=url.get_backend_name(),
+        database=url.database,
+    )
