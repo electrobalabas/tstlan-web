@@ -5,8 +5,11 @@ export PYTHONPATH=$(root)
 uv_run := uv run --no-python-downloads
 docs_root := $(root)/docs
 docs_build_folder := $(root)/build/docs
+postgres_compose := docker compose -f docker-compose.test.yml
+postgres_test_url ?= postgresql+psycopg://tstlan:tstlan@127.0.0.1:55432/tstlan_test
 
 .PHONY: test test-integration test-all format can-i-push migrate \
+	test-postgres postgres-up postgres-down \
 	device-multimeter device-thermostat dev-server seed docs-build docs-open
 
 device-multimeter:
@@ -31,6 +34,15 @@ test-integration:
 
 test-all:
 	$(uv_run) pytest -m ""
+
+postgres-up:
+	$(postgres_compose) up -d --wait postgres
+
+postgres-down:
+	$(postgres_compose) down --remove-orphans
+
+test-postgres: postgres-up
+	TEST_POSTGRES_DATABASE_URL=$(postgres_test_url) $(uv_run) pytest -m postgres -ra -q
 
 migrate:
 	$(uv_run) alembic upgrade head

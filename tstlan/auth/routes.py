@@ -19,9 +19,11 @@ from tstlan.auth.service import (
     revoke_session,
 )
 from tstlan.config import Settings
+from tstlan.logging_setup import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 users_router = APIRouter(tags=["users"])
+logger = get_logger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -59,6 +61,7 @@ async def login(
 ) -> dict[str, Any]:
     user = await authenticate(db, payload.login, payload.password)
     if user is None:
+        logger.warning("login rejected", extra={"login": payload.login})
         raise HTTPException(status_code=401, detail="invalid credentials")
     settings: Settings = request.app.state.settings
     session = await create_session(
@@ -70,6 +73,7 @@ async def login(
         ttl=timedelta(hours=settings.session_ttl_hours),
         secure=settings.cookie_secure,
     )
+    logger.info("login accepted", extra={"login": user.login, "role": user.role})
     return _identity(user, session.csrf_token)
 
 
@@ -82,6 +86,7 @@ async def logout(
     token = request.cookies.get(SESSION_COOKIE)
     if token:
         await revoke_session(db, token)
+        logger.info("session revoked")
     clear_session_cookie(response)
     return {"status": "logged out"}
 
@@ -98,6 +103,7 @@ async def list_users_endpoint(
     _user: Annotated[User, Depends(current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[UserSummary]:
+    logger.debug("users listing requested", extra={"login": _user.login})
     return [
         UserSummary(login=user.login, role=user.role) for user in await list_users(db)
     ]

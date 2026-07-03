@@ -89,7 +89,7 @@ def test_migration_normalizes_transport_and_drops_variable_index(
 
 
 def _alembic_config(url: str) -> Config:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     config = Config(str(root / "alembic.ini"))
     config.set_main_option("script_location", str(root / "migrations"))
     config.set_main_option("sqlalchemy.url", url)
