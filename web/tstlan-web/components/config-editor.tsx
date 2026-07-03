@@ -18,10 +18,10 @@ import {
   type ConfigDetail,
 } from "@/lib/api";
 import {
-  ACCESS_META,
   VISIBILITY_META,
   canPublish,
   configToDraft,
+  describeConfigAccess,
   draftToPayload,
   type ConfigFormDraft,
 } from "@/lib/configs";
@@ -79,8 +79,8 @@ export function ConfigEditor({ id }: { id: number }) {
 
   const { config } = load;
 
-  async function submit(draft: ConfigFormDraft) {
-    if (csrf === null) return;
+  async function submit(draft: ConfigFormDraft): Promise<boolean> {
+    if (csrf === null) return false;
     setPending(true);
     setError(null);
     const body =
@@ -96,8 +96,10 @@ export function ConfigEditor({ id }: { id: number }) {
         : { payload: draftToPayload(draft) };
     try {
       setLoad({ status: "ready", config: await updateConfig(id, body, csrf) });
+      return true;
     } catch (cause) {
       setError(describeSaveError(cause));
+      return false;
     } finally {
       setPending(false);
     }
@@ -179,7 +181,11 @@ function Header({ config }: { config: ConfigDetail }) {
         <span className="ml-auto text-xs text-muted-foreground">
           {config.owner_login}
           <span className="ml-1.5 text-muted-foreground/60 uppercase">
-            {ACCESS_META[config.access].label}
+            {describeConfigAccess(
+              config.access,
+              config.visibility,
+              config.shares.length,
+            )}
           </span>
         </span>
       </div>

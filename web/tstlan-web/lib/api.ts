@@ -152,16 +152,31 @@ export function writeValue(
   );
 }
 
+export type HistoryPoint = {
+  t: number; // миллисекунды серверного времени, как у точек потока
+  values: Record<string, number>;
+};
+
+export function getHistory(deviceId: string): Promise<HistoryPoint[]> {
+  return request<HistoryPoint[]>(
+    `/devices/${encodeURIComponent(deviceId)}/history`,
+  ).then((points) =>
+    points.map((point) => ({ ...point, t: Math.round(point.t * 1000) })),
+  );
+}
+
 export function streamValues(
   deviceId: string,
-  onSnapshot: (snapshot: VariableValue[]) => void,
+  // t - серверное время в миллисекундах: единая ось с историей с бэка
+  onSnapshot: (snapshot: VariableValue[], t: number) => void,
   onError?: () => void,
 ): () => void {
   const source = new EventSource(
     `/api/devices/${encodeURIComponent(deviceId)}/stream`,
   );
   source.onmessage = (event) => {
-    onSnapshot(JSON.parse(event.data) as VariableValue[]);
+    const data = JSON.parse(event.data) as { t: number; values: VariableValue[] };
+    onSnapshot(data.values, Math.round(data.t * 1000));
   };
   source.onerror = () => onError?.();
   return () => source.close();

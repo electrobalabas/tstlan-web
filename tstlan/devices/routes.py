@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
@@ -8,10 +9,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from tstlan.auth.models import Role, User
 from tstlan.auth.routes import current_user
+from tstlan.devices.history import History, device_history
 from tstlan.devices.models import ValueValidationError
 from tstlan.devices.schemas import (
     DeviceDetail,
     DeviceSummary,
+    HistoryPoint,
     VariableValue,
     WriteValueRequest,
 )
@@ -38,6 +41,10 @@ def get_shutdown_event(request: Request) -> asyncio.Event:
     return request.app.state.shutdown_event
 
 
+def get_history(request: Request) -> History:
+    return request.app.state.history
+
+
 def require_writer(user: Annotated[User, Depends(current_user)]) -> User:
     if user.role not in (Role.DEV, Role.ADMIN):
         logger.warning("device write rejected", extra={"login": user.login})
@@ -48,6 +55,7 @@ def require_writer(user: Annotated[User, Depends(current_user)]) -> User:
 Service = Annotated[DeviceService, Depends(get_service)]
 ShutdownEvent = Annotated[asyncio.Event, Depends(get_shutdown_event)]
 Writer = Annotated[User, Depends(require_writer)]
+DeviceHistory = Annotated[History, Depends(get_history)]
 
 
 @router.get("/devices")
@@ -68,6 +76,14 @@ def read_values(device_id: str, service: Service) -> list[VariableValue]:
 @router.get("/devices/{device_id}/values/{name}")
 def read_value(device_id: str, name: str, service: Service) -> VariableValue:
     return VariableValue.from_var(service.read_value(device_id, name))
+
+
+@router.get("/devices/{device_id}/history")
+def read_history(
+    device_id: str, service: Service, history: DeviceHistory
+) -> list[HistoryPoint]:
+    service.get_device(device_id)  # неизвестный прибор -> 404
+    return [HistoryPoint.from_sample(s) for s in device_history(history, device_id)]
 
 
 @router.put("/devices/{device_id}/values/{name}")
@@ -98,7 +114,10 @@ async def value_event_stream(
             VariableValue.from_var(var).model_dump(mode="json")
             for var in service.read_values(device_id)
         ]
-        yield f"data: {json.dumps(snapshot)}\n\n"
+        # серверное время - единый источник для точек графика: история и поток
+        # должны ложиться на одну ось, не завися от часов браузера
+        event = {"t": time.time(), "values": snapshot}
+        yield f"data: {json.dumps(event)}\n\n"
         await _wait_or_stop(stop, interval)
 
 

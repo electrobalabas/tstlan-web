@@ -26,6 +26,7 @@ def test_default_catalog_is_served(login_as: LoginAs) -> None:
         "/devices/dev",
         "/devices/dev/values",
         "/devices/dev/values/level",
+        "/devices/dev/history",
         "/devices/dev/stream",
     ],
 )

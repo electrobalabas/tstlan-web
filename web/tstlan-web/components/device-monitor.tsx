@@ -2,31 +2,41 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Dialog } from "@base-ui/react/dialog";
+import { Menu } from "@base-ui/react/menu";
 import {
   ArrowLeftIcon,
   CheckIcon,
   ChartLineIcon,
+  CornersOutIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
+  PlusIcon,
   XIcon,
 } from "@phosphor-icons/react/ssr";
 
 import { useAuth } from "@/components/auth-provider";
 import {
   TimeSeriesChart,
+  type ChartSeries,
   type Sample,
 } from "@/components/time-series-chart";
 import { cn } from "@/lib/utils";
 import {
   ApiError,
+  getConfig,
   getDevice,
+  getHistory,
+  listConfigs,
   streamValues,
   writeValue,
   type DeviceDetail,
   type NetVarCType,
   type VariableInfo,
 } from "@/lib/api";
+import { graphSelection, pickDeviceConfig } from "@/lib/device-graph";
 import { MODE_META, STATUS_META } from "@/lib/devices";
+import { seedHistory } from "@/lib/history";
 
 type LoadState =
   | { status: "loading" }
@@ -44,6 +54,7 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   const [values, setValues] = useState<Record<string, number>>({});
   const [history, setHistory] = useState<Record<string, Sample[]>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [grouping, setGrouping] = useState<Grouping>({});
   const [connection, setConnection] = useState<Connection>("connecting");
   const [query, setQuery] = useState("");
 
@@ -59,6 +70,14 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
       } else {
         next.add(name);
       }
+      return next;
+    });
+    // Переключение всегда сбрасывает группировку переменной: снятая с графика
+    // не должна при повторном добавлении воскрешать прежнюю группу.
+    setGrouping((prev) => {
+      if (!(name in prev)) return prev;
+      const next = { ...prev };
+      delete next[name];
       return next;
     });
   }, []);
@@ -79,10 +98,55 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
 
   useEffect(() => {
     if (load.status !== "ready") return;
+    let active = true;
+    getHistory(deviceId)
+      .then((points) => {
+        if (!active || points.length === 0) return;
+        setHistory((prev) => seedHistory(prev, points, MAX_POINTS));
+      })
+      .catch(() => {
+        // история не критична: график начнётся с живого потока
+      });
+    return () => {
+      active = false;
+    };
+  }, [deviceId, load.status]);
+
+  // Прибор «примеряет» флаги graph совпадающего конфига: помеченные переменные
+  // строятся по умолчанию. Конфиги и приборы разъединены, поэтому связываем их
+  // здесь по device_type == id прибора, не трогая ручной выбор пользователя.
+  useEffect(() => {
+    if (load.status !== "ready") return;
+    const device = load.device;
+    let active = true;
+    listConfigs()
+      .then((summaries) => {
+        const match = pickDeviceConfig(summaries, device.id);
+        if (match === null) return;
+        return getConfig(match.id).then((config) => {
+          if (!active) return;
+          const names = graphSelection(
+            config.payload.variables,
+            device.variables.map((variable) => variable.name),
+          );
+          if (names.size > 0) {
+            setSelected((prev) => (prev.size > 0 ? prev : names));
+          }
+        });
+      })
+      .catch(() => {
+        // дефолтный выбор не критичен: пользователь добавит линии вручную
+      });
+    return () => {
+      active = false;
+    };
+  }, [deviceId, load.status, load]);
+
+  useEffect(() => {
+    if (load.status !== "ready") return;
     const stop = streamValues(
       deviceId,
-      (snapshot) => {
-        const t = Date.now();
+      (snapshot, t) => {
         setValues(Object.fromEntries(snapshot.map((v) => [v.name, v.value])));
         setHistory((prev) => {
           const next = { ...prev };
@@ -139,6 +203,8 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
       <ChartPanel
         variables={device.variables}
         selected={selected}
+        grouping={grouping}
+        setGrouping={setGrouping}
         history={history}
         values={values}
         onToggle={toggleSelected}
@@ -156,96 +222,369 @@ export function DeviceMonitor({ deviceId }: { deviceId: string }) {
   );
 }
 
-const WINDOWS: { label: string; ms: number | null }[] = [
-  { label: "30с", ms: 30_000 },
-  { label: "1м", ms: 60_000 },
-  { label: "5м", ms: 300_000 },
-  { label: "15м", ms: 900_000 },
-  { label: "всё", ms: null },
+const WINDOW_OPTIONS: { label: string; value: number | null }[] = [
+  { label: "30с", value: 30_000 },
+  { label: "1м", value: 60_000 },
+  { label: "5м", value: 300_000 },
+  { label: "15м", value: 900_000 },
+  { label: "всё", value: null },
 ];
+
+// Палитра для наложенных линий: при совмещённом режиме каждая переменная
+// получает свой цвет (раздельные графики остаются монохромными).
+const SERIES_COLORS = [
+  "#0d9488",
+  "#2563eb",
+  "#d97706",
+  "#dc2626",
+  "#7c3aed",
+  "#0891b2",
+  "#65a30d",
+  "#db2777",
+];
+
+// Группировка линий по графикам: имя переменной → id графика. Переменные с
+// одним id рисуются наложенными; отсутствие записи означает собственный график.
+export type Grouping = Record<string, string>;
+
+type ChartGroup = { id: string; members: VariableInfo[] };
+
+let groupSeq = 0;
+function nextGroupId(): string {
+  groupSeq += 1;
+  return `g${groupSeq}`;
+}
+function soloId(name: string): string {
+  return `solo:${name}`;
+}
+
+function groupTitle(group: ChartGroup): string {
+  return group.members.map((variable) => variable.name).join(" + ");
+}
 
 function ChartPanel({
   variables,
   selected,
+  grouping,
+  setGrouping,
   history,
   values,
   onToggle,
 }: {
   variables: VariableInfo[];
   selected: Set<string>;
+  grouping: Grouping;
+  setGrouping: React.Dispatch<React.SetStateAction<Grouping>>;
   history: Record<string, Sample[]>;
   values: Record<string, number>;
   onToggle: (name: string) => void;
 }) {
   const [windowMs, setWindowMs] = useState<number | null>(60_000);
+  // Полноэкранный график задаётся id группы; null — окно закрыто.
+  const [fullscreenId, setFullscreenId] = useState<string | null>(null);
+
   const charted = variables.filter((variable) => selected.has(variable.name));
   if (charted.length === 0) return null;
+
+  const groupIdOf = (name: string) => grouping[name] ?? soloId(name);
+  // Линии собираются в группы в порядке появления переменных в таблице.
+  const groups: ChartGroup[] = [];
+  const indexById = new Map<string, number>();
+  for (const variable of charted) {
+    const id = groupIdOf(variable.name);
+    const at = indexById.get(id);
+    if (at === undefined) {
+      indexById.set(id, groups.length);
+      groups.push({ id, members: [variable] });
+    } else {
+      groups[at].members.push(variable);
+    }
+  }
+
+  const toSeries = (variable: VariableInfo, color: string): ChartSeries => ({
+    key: variable.name,
+    label: variable.name,
+    color,
+    samples: history[variable.name] ?? [],
+    format: (value) => formatChartValue(variable.ctype, value),
+  });
+  // Наложенные линии раскрашены палитрой; одиночный график — цветом текста.
+  const seriesOf = (group: ChartGroup): ChartSeries[] =>
+    group.members.length > 1
+      ? group.members.map((variable, index) =>
+          toSeries(variable, SERIES_COLORS[index % SERIES_COLORS.length]),
+        )
+      : [toSeries(group.members[0], "var(--foreground)")];
+
+  // Слить переменную в этот график. Если цель ещё одиночная (solo-id), выдаём ей
+  // настоящий id и переносим туда обе линии.
+  const mergeInto = (group: ChartGroup, name: string) =>
+    setGrouping((prev) => {
+      const next = { ...prev };
+      let targetId = group.id;
+      if (targetId.startsWith("solo:")) {
+        targetId = nextGroupId();
+        for (const member of group.members) next[member.name] = targetId;
+      }
+      next[name] = targetId;
+      return next;
+    });
+  // Вынести линию обратно на собственный график.
+  const splitOut = (name: string) =>
+    setGrouping((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  const closeGroup = (group: ChartGroup) =>
+    group.members.forEach((variable) => onToggle(variable.name));
+
+  const fullscreenGroup = groups.find((group) => group.id === fullscreenId);
+
   return (
-    <div className="space-y-4 border border-border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-          Графики
-        </span>
-        <div className="flex">
-          {WINDOWS.map((option, index) => (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => setWindowMs(option.ms)}
-              aria-pressed={windowMs === option.ms}
-              className={cn(
-                "border border-border px-2 py-1 font-mono text-[11px] transition-colors",
-                index > 0 && "-ml-px",
-                windowMs === option.ms
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
+    <>
+      <div className="space-y-4 border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+            Графики
+          </span>
+          <Segmented
+            options={WINDOW_OPTIONS}
+            value={windowMs}
+            onSelect={setWindowMs}
+          />
+        </div>
+
+        <div className="space-y-5 divide-y divide-border">
+          {groups.map((group) => {
+            const single = group.members.length === 1;
+            const lead = group.members[0];
+            // Текущее значение в шапке — только для одиночного графика; у
+            // совмещённого значения показывает легенда под графиком.
+            const headerValue = !single
+              ? undefined
+              : lead.name in values
+                ? formatValue(lead.ctype, values[lead.name])
+                : "...";
+            return (
+              <div key={group.id} className="space-y-2 pt-5 first:pt-0">
+                <ChartHeader
+                  title={groupTitle(group)}
+                  ctype={single ? lead.ctype : undefined}
+                  value={headerValue}
+                  mergeable={charted.filter(
+                    (variable) => groupIdOf(variable.name) !== group.id,
+                  )}
+                  onMerge={(name) => mergeInto(group, name)}
+                  onExpand={() => setFullscreenId(group.id)}
+                  onRemove={() => closeGroup(group)}
+                />
+                <TimeSeriesChart
+                  series={seriesOf(group)}
+                  windowMs={windowMs}
+                  onRemoveSeries={splitOut}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div className="space-y-5 divide-y divide-border">
-        {charted.map((variable) => {
-          const latest = values[variable.name];
-          return (
-            <div key={variable.name} className="space-y-2 pt-5 first:pt-0">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <span className="truncate font-mono text-xs">
-                    {variable.name}
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground uppercase">
-                    {variable.ctype}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm tabular-nums">
-                    {latest === undefined
-                      ? "..."
-                      : formatValue(variable.ctype, latest)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onToggle(variable.name)}
-                    title="Убрать с графика"
-                    className="flex size-6 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <XIcon className="size-3" />
-                  </button>
-                </div>
-              </div>
-              <TimeSeriesChart
-                samples={history[variable.name] ?? []}
-                windowMs={windowMs}
-                format={(value) => formatChartValue(variable.ctype, value)}
-              />
-            </div>
-          );
-        })}
+
+      <ChartDialog
+        open={fullscreenGroup !== undefined}
+        title={fullscreenGroup && groupTitle(fullscreenGroup)}
+        windowMs={windowMs}
+        onWindow={setWindowMs}
+        onClose={() => setFullscreenId(null)}
+      >
+        {fullscreenGroup && (
+          <TimeSeriesChart
+            series={seriesOf(fullscreenGroup)}
+            windowMs={windowMs}
+            fill
+            onRemoveSeries={splitOut}
+          />
+        )}
+      </ChartDialog>
+    </>
+  );
+}
+
+function Segmented<T>({
+  options,
+  value,
+  onSelect,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onSelect: (value: T) => void;
+}) {
+  return (
+    <div className="flex">
+      {options.map((option, index) => (
+        <button
+          key={option.label}
+          type="button"
+          onClick={() => onSelect(option.value)}
+          aria-pressed={value === option.value}
+          className={cn(
+            "border border-border px-2 py-1 font-mono text-[11px] transition-colors",
+            index > 0 && "-ml-px",
+            value === option.value
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const ICON_BUTTON =
+  "flex size-6 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground";
+
+function ChartHeader({
+  title,
+  ctype,
+  value,
+  mergeable,
+  onMerge,
+  onExpand,
+  onRemove,
+}: {
+  title: string;
+  ctype?: NetVarCType;
+  value?: string;
+  // Переменные с других графиков, которые можно подмешать сюда.
+  mergeable: VariableInfo[];
+  onMerge: (name: string) => void;
+  onExpand: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="truncate font-mono text-xs">{title}</span>
+        {ctype && (
+          <span className="font-mono text-[10px] text-muted-foreground uppercase">
+            {ctype}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        {value !== undefined && (
+          <span className="font-mono text-sm tabular-nums">{value}</span>
+        )}
+        <div className="flex items-center gap-1">
+          {mergeable.length > 0 && (
+            <MergeMenu options={mergeable} onMerge={onMerge} />
+          )}
+          <button
+            type="button"
+            onClick={onExpand}
+            title="Развернуть на весь экран"
+            className={ICON_BUTTON}
+          >
+            <CornersOutIcon className="size-3" />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            title="Убрать график"
+            className={ICON_BUTTON}
+          >
+            <XIcon className="size-3" />
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function MergeMenu({
+  options,
+  onMerge,
+}: {
+  options: VariableInfo[];
+  onMerge: (name: string) => void;
+}) {
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        title="Добавить переменную на этот график"
+        className={cn(ICON_BUTTON, "data-[popup-open]:bg-muted")}
+      >
+        <PlusIcon className="size-3" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
+          <Menu.Popup className="min-w-40 border border-border bg-popover p-1 shadow-md outline-none">
+            <div className="px-2 py-1 text-[10px] tracking-wider text-muted-foreground uppercase">
+              Добавить сюда
+            </div>
+            {options.map((variable) => (
+              <Menu.Item
+                key={variable.name}
+                onClick={() => onMerge(variable.name)}
+                className="flex cursor-default items-center justify-between gap-3 px-2 py-1 font-mono text-xs outline-none select-none data-[highlighted]:bg-muted"
+              >
+                <span className="truncate">{variable.name}</span>
+                <span className="text-[10px] text-muted-foreground uppercase">
+                  {variable.ctype}
+                </span>
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+function ChartDialog({
+  open,
+  title,
+  windowMs,
+  onWindow,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string | undefined;
+  windowMs: number | null;
+  onWindow: (value: number | null) => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs" />
+        <Dialog.Popup className="fixed inset-3 z-50 flex flex-col gap-3 border border-border bg-card p-4 shadow-lg outline-none md:inset-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Dialog.Title className="truncate font-heading text-sm font-bold tracking-[0.12em] uppercase">
+              {title}
+            </Dialog.Title>
+            <div className="flex items-center gap-2">
+              <Segmented
+                options={WINDOW_OPTIONS}
+                value={windowMs}
+                onSelect={onWindow}
+              />
+              <Dialog.Close
+                className="flex size-7 shrink-0 items-center justify-center border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Закрыть"
+              >
+                <XIcon className="size-3.5" />
+              </Dialog.Close>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1">{children}</div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

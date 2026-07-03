@@ -15,6 +15,7 @@ from tstlan.configs.routes import (
 )
 from tstlan.configs.routes import router as configs_router
 from tstlan.db import create_engine, create_sessionmaker
+from tstlan.devices.history import new_history, run_sampler
 from tstlan.devices.net.client import LazySocketUnidriverIO
 from tstlan.devices.routes import register_exception_handlers
 from tstlan.devices.routes import router as devices_router
@@ -57,6 +58,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     sessionmaker = create_sessionmaker(engine)
     shutdown_event = asyncio.Event()
     devices, simulation = _build_devices(settings)
+    history = new_history()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -69,12 +71,14 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
             if simulation is not None
             else None
         )
+        sampler = asyncio.create_task(run_sampler(history, devices, shutdown_event))
         try:
             yield
         finally:
             shutdown_event.set()
             if task is not None:
                 await task
+            await sampler
             await engine.dispose()
             logger.info("application shutdown complete")
 
@@ -84,6 +88,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.devices = devices
     app.state.simulation = simulation
+    app.state.history = history
     app.state.shutdown_event = shutdown_event
 
     app.add_middleware(

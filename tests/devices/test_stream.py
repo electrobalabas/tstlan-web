@@ -16,7 +16,8 @@ async def test_stream_emits_values_snapshot(devices_service: DeviceService) -> N
     await stream.aclose()
     assert event.startswith("data: ")
     payload = json.loads(event.removeprefix("data: "))
-    assert any(item["name"] == "voltage" for item in payload)
+    assert payload["t"] > 0  # серверное время unix в секундах
+    assert any(item["name"] == "voltage" for item in payload["values"])
 
 
 @pytest.mark.anyio

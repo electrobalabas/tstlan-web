@@ -10,7 +10,7 @@ import {
 
 import { buttonVariants } from "@/components/ui/button";
 import { listConfigs, type ConfigSummary } from "@/lib/api";
-import { ACCESS_META, VISIBILITY_META } from "@/lib/configs";
+import { VISIBILITY_META } from "@/lib/configs";
 
 type LoadState =
   | { status: "loading" }
@@ -67,11 +67,10 @@ export default function ConfigsPage() {
 function ConfigTable({ configs }: { configs: ConfigSummary[] }) {
   return (
     <div className="border border-border bg-card">
-      <div className="grid grid-cols-[1fr_8rem_6rem_5rem_2rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
+      <div className="grid grid-cols-[1fr_8rem_6rem_2rem] items-center gap-3 border-b border-border px-4 py-2 text-[10px] tracking-wider text-muted-foreground uppercase">
         <span>Конфиг</span>
         <span>Тип прибора</span>
         <span>Видимость</span>
-        <span className="text-right">Доступ</span>
         <span />
       </div>
       <ul className="divide-y divide-border">
@@ -79,7 +78,7 @@ function ConfigTable({ configs }: { configs: ConfigSummary[] }) {
           <li key={config.id}>
             <Link
               href={`/configs/${config.id}`}
-              className="group grid grid-cols-[1fr_8rem_6rem_5rem_2rem] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
+              className="group grid grid-cols-[1fr_8rem_6rem_2rem] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">
@@ -94,9 +93,6 @@ function ConfigTable({ configs }: { configs: ConfigSummary[] }) {
               </span>
               <span className="text-xs text-muted-foreground">
                 {VISIBILITY_META[config.visibility].label}
-              </span>
-              <span className="text-right text-xs text-muted-foreground uppercase">
-                {ACCESS_META[config.access].label}
               </span>
               <CaretRightIcon className="size-4 text-muted-foreground transition-colors group-hover:text-foreground" />
             </Link>

@@ -26,6 +26,20 @@ export const ACCESS_META: Record<ConfigAccess, { label: string }> = {
   read: { label: "Чтение" },
 };
 
+// Подпись доступа в шапке конфига. Для не-владельца это просто его право. Для
+// владельца голое «Владелец» вводит в заблуждение, когда конфиг уже расшарен,
+// поэтому отражаем реальное положение: публичный, число выданных прав или личный.
+export function describeConfigAccess(
+  access: ConfigAccess,
+  visibility: ConfigVisibility,
+  sharesCount: number,
+): string {
+  if (access !== "owner") return ACCESS_META[access].label;
+  if (visibility === "public") return "Владелец · публичный";
+  if (sharesCount > 0) return `Владелец · ещё ${sharesCount} с доступом`;
+  return "Владелец";
+}
+
 export const PERMISSION_META: Record<SharePermission, { label: string }> = {
   read: { label: "Чтение" },
   write: { label: "Запись" },

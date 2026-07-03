@@ -4,6 +4,7 @@ import {
   availableGrantees,
   canPublish,
   configToDraft,
+  describeConfigAccess,
   draftToPayload,
   emptyDraft,
   formatOffset,
@@ -353,5 +354,31 @@ describe("emptyDraft", () => {
     expect(draft.pollPeriodMs).toBe("200");
     expect(draft.variables).toEqual([]);
     expect(draft.params).toEqual({});
+  });
+});
+
+describe("describeConfigAccess", () => {
+  it("у не-владельца показывает только его право", () => {
+    expect(describeConfigAccess("write", "shared", 3)).toBe("Запись");
+    expect(describeConfigAccess("read", "public", 0)).toBe("Чтение");
+  });
+
+  it("личный конфиг без грантов - просто владелец", () => {
+    expect(describeConfigAccess("owner", "private", 0)).toBe("Владелец");
+  });
+
+  it("после выдачи доступа отражает число получателей", () => {
+    expect(describeConfigAccess("owner", "shared", 1)).toBe(
+      "Владелец · ещё 1 с доступом",
+    );
+    expect(describeConfigAccess("owner", "shared", 2)).toBe(
+      "Владелец · ещё 2 с доступом",
+    );
+  });
+
+  it("публичный конфиг помечается явно", () => {
+    expect(describeConfigAccess("owner", "public", 0)).toBe(
+      "Владелец · публичный",
+    );
   });
 });
