@@ -1,6 +1,6 @@
 import json
 import logging
-from unittest.mock import Mock
+from unittest.mock import patch
 
 from tstlan.auth.models import Role
 from tstlan.logging_setup import JsonFormatter, get_service_logger, log_event
@@ -33,13 +33,8 @@ def test_service_logger_uses_service_namespace() -> None:
     logger = get_service_logger("configs")
     assert logger.name == "tstlan.services.configs"
 
-    original_log = logger.log
-    mocked_log = Mock()
-    logger.log = mocked_log
-    try:
+    with patch.object(logger, "log") as mocked_log:
         log_event(logger, logging.INFO, "configs.created", config_id=1)
-    finally:
-        logger.log = original_log
 
     mocked_log.assert_called_once_with(
         logging.INFO,
