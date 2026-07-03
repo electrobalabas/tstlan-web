@@ -8,7 +8,7 @@ docs_build_folder := $(root)/build/docs
 postgres_compose := docker compose -f docker-compose.test.yml
 postgres_test_url ?= postgresql+psycopg://tstlan:tstlan@127.0.0.1:55432/tstlan_test
 
-.PHONY: test test-integration test-all format can-i-push migrate \
+.PHONY: test coverage test-integration test-all format can-i-push migrate \
 	test-postgres postgres-up postgres-down \
 	device-multimeter device-thermostat dev-server seed docs-build docs-open
 
@@ -25,9 +25,11 @@ seed:
 	$(uv_run) python -m tstlan.tools.seed --config config.dev.toml
 
 test:
-	$(uv_run) pytest -n auto --dist loadscope -ra -q \
-    --cov=tstlan --cov-report=term-missing --cov-report=html \
-    --timeout=30
+	$(uv_run) pytest -n auto --dist loadscope -ra -q --timeout=30
+
+coverage:
+	$(uv_run) pytest -n auto --dist loadscope -ra -q --timeout=30 \
+    --cov --cov-report=term-missing --cov-report=html --cov-report=xml
 
 test-integration:
 	$(uv_run) pytest -m integration

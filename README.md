@@ -124,6 +124,7 @@ allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 ```sh
 make test         # pytest
+make coverage     # pytest + coverage report (term/html/xml)
 make test-postgres # PostgreSQL migrations against docker compose
 make format       # ruff format + ruff check --fix
 make can-i-push   # ruff (format+check) + ty + pytest
