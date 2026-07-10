@@ -7,9 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tstlan.auth.models import Role
 from tstlan.auth.service import create_user
 from tstlan.configs.models import ConfigVisibility, DeviceConfig
-from tstlan.configs.schemas import ConfigCreate, ConfigPayload, ConfigVar
+from tstlan.configs.schemas import ConfigCreate, ConfigPayload
 from tstlan.configs.service import create_config
-from tstlan.models import NetVarCType
 from tstlan.trip import (
     ConfigSnapshot,
     TripAction,
