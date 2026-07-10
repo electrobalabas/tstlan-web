@@ -1,155 +1,199 @@
 # TSTLAN web platform
 
-Веб-платформа мониторинга измерительных приборов по протоколу TSTLAN:
-браузер ⇄ Python-сервер ⇄ приборы. Замена настольного TSTLAN. Тема ВКР;
-обоснование и проектирование — в `report.typ`.
+TSTLAN - веб-платформа мониторинга измерительных приборов:
+браузер -> Next.js frontend -> FastAPI backend -> приборы. Проект можно
+запустить локально без внешней базы и без реального оборудования: по умолчанию
+используется SQLite и встроенная симуляция приборов.
 
-Стек: фронтенд на Next.js (`web/tstlan-web`) ⇄ FastAPI (асинхронный) ⇄
-SQLAlchemy ⇄ SQLite или PostgreSQL.
+## Что нужно установить
 
-## Требования
+- Python >= 3.14
+- [uv](https://docs.astral.sh/uv/) для Python-зависимостей и запуска backend
+- Node.js >= 20
+- pnpm для frontend
 
-- Python ≥ 3.14
-- [uv](https://docs.astral.sh/uv/)
-- Node.js ≥ 20 и [pnpm](https://pnpm.io/) — для фронтенда
+Быстрая установка инструментов:
 
-## Запуск (dev)
+```sh
+# Python runtime для проекта, если 3.14 ещё нет в системе
+uv python install 3.14
 
-Бэкенд и фронтенд поднимаются раздельно; дефолты согласованы, поэтому
-переменные окружения не нужны.
+# pnpm через Corepack, который идёт вместе с Node.js
+corepack enable
+corepack prepare pnpm@latest --activate
+```
 
-**1. Один раз — создать администратора** (команда сама прогоняет миграции):
+Проверка:
+
+```sh
+uv --version
+python --version
+node --version
+pnpm --version
+```
+
+## Первый запуск
+
+Команды ниже выполняются из корня репозитория, кроме frontend-команд.
+
+### 1. Создать базу и администратора
 
 ```sh
 uv run python -m tstlan.tools.create_admin --login admin --password secret
 ```
 
-Создаёт `tstlan.db` со схемой и пользователя-админа. Нужна только схема без
-пользователя — `make migrate`.
+Команда сама установит Python-зависимости через `uv`, применит миграции Alembic
+и создаст локальный `tstlan.db`. Повторный запуск с тем же логином завершится
+ошибкой, потому что пользователь уже есть.
 
-**2. Бэкенд** (терминал 1):
+### 2. Запустить backend
+
+Откройте первый терминал:
 
 ```sh
-uv run tstlan                       # 127.0.0.1:8000
-uv run tstlan --port 9000 --log-level DEBUG
-python -m tstlan                    # эквивалентно
+uv run tstlan
 ```
 
-**3. Фронтенд** (терминал 2):
+Backend будет доступен на `http://127.0.0.1:8000`.
+
+Проверка:
+
+```sh
+curl http://127.0.0.1:8000/health
+```
+
+Ожидаемый ответ:
+
+```json
+{"status":"ok"}
+```
+
+### 3. Запустить frontend
+
+Откройте второй терминал:
 
 ```sh
 cd web/tstlan-web
-pnpm install                        # один раз
-pnpm dev                            # localhost:3000
+pnpm install
+pnpm dev
 ```
 
-**4. Открыть** `http://localhost:3000` → редирект на `/login` → войти
-`admin` / `secret`.
+Frontend будет доступен на `http://localhost:3000`.
 
-Браузер ходит только на origin фронтенда; Next проксирует `/api/*` на бэкенд
-(`BACKEND_ORIGIN`, по умолчанию `http://127.0.0.1:8000`) — для браузера это
-один origin, поэтому сессионные cookie и CSRF работают без CORS. Если бэкенд
-на другом порту: `BACKEND_ORIGIN=http://127.0.0.1:9000 pnpm dev`.
+Откройте страницу в браузере и войдите:
 
-## Приборы-эмуляторы и тестовые данные
+- login: `admin`
+- password: `secret`
 
-Приборы можно вынести в отдельные процессы (`devsim`): эмулятор держит буфер
-прибора, крутит сигналы из профиля прибора и отдаёт значения по TCP. Бэкенд ходит
-к ним клиентом, если в конфиге задан список `devices` (`config.dev.toml`); иначе
-приборы поднимаются in-process с симуляцией. Соединение ленивое — прибор можно
-поднять и после сервера, метаданные `GET /devices` доступны сразу.
+Next.js проксирует `/api/*` на backend. По умолчанию используется
+`http://127.0.0.1:8000`, поэтому дополнительные переменные окружения для
+обычного запуска не нужны.
+
+## Запуск с тестовыми данными и внешними dev-приборами
+
+Обычный `uv run tstlan` запускает приборы in-process. Если нужно проверить
+режим, где приборы вынесены в отдельные TCP-процессы, используйте
+`config.dev.toml`.
+
+Откройте отдельные терминалы:
 
 ```sh
-make device-multimeter    # эмулятор на 127.0.0.1:9001 (dev/multimeter.yaml)
-make device-thermostat    # эмулятор на 127.0.0.1:9002 (dev/thermostat.yaml)
-make dev-server           # tstlan --config config.dev.toml (ходит к эмуляторам)
-make seed                 # тестовые юзеры (напрямую в БД) + конфиги (через POST)
+make device-multimeter
+make device-thermostat
+make dev-server
 ```
 
-Сид (`tstlan.tools.seed`, данные — `tstlan/tools/seed_data.py`) идемпотентно
-создаёт пользователей `admin`/`engineer`/`operator`/`viewer` (пароль `<login>123`)
-и конфиги с разной видимостью и шарингом — чтобы прокликать приватные/общие
-конфиги, права read/write и значения приборов. Запускать при поднятом сервере.
-
-Свой прибор — это профиль прибора (`dev/*.yaml`): имя, тип, переменные (`ctype`,
-`mode` r/rw/w, опционально `signal`). Запуск отдельного прибора:
-`uv run python -m devsim --profile <файл> --port <порт>`.
-
-## База данных и миграции
-
-По умолчанию SQLite (`./tstlan.db`); PostgreSQL — через `--database-url`
-(`postgresql+psycopg://...`). Схема — источником истины является Alembic,
-приложение само таблицы не создаёт.
+После запуска backend можно наполнить базу тестовыми пользователями и
+конфигами:
 
 ```sh
-make migrate                        # alembic upgrade head
-uv run alembic revision --autogenerate -m "..."   # новая миграция
+make seed
 ```
 
-## Логи
+Тестовые пользователи:
 
-Бэкенд пишет JSON-логи через стандартный `logging`. Для доменных сервисов есть
-отдельный namespace `tstlan.services.*`; события пишутся как wide structured
-events: одно событие содержит `event`, `service`, безопасные идентификаторы и
-контекстные поля. Отдельная зависимость `WideEvents` не нужна — текущему проекту
-достаточно стандартного логгера с JSON formatter, без нового рантайм-контракта.
+- `admin` / `admin123`
+- `engineer` / `engineer123`
+- `operator` / `operator123`
+- `viewer` / `viewer123`
 
-## Конфигурация
+`make seed` ходит в уже запущенный backend через HTTP API, поэтому backend
+должен работать до запуска этой команды.
 
-Приоритет: дефолты < `config.toml` < аргументы CLI
-(`--host`, `--port`, `--log-level`, `--config`, `--database-url`).
+## Частые проблемы
 
-Необязательный `config.toml` рядом с запуском:
+### `pnpm` не найден
 
-```toml
-bind_host = "127.0.0.1"
-bind_port = 8000
-log_level = "INFO"
-database_url = "sqlite+aiosqlite:///./tstlan.db"
-session_ttl_hours = 720             # время жизни сессии (скользящее)
-session_refresh_hours = 24          # как часто продлять сессию в БД
-cookie_secure = false               # в проде (HTTPS) выставить true
-allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+Включите Corepack:
+
+```sh
+corepack enable
+corepack prepare pnpm@latest --activate
 ```
 
-## Аутентификация
+### Backend запущен не на 8000 порту
 
-Сессии на сервере (таблица `sessions`), пароли — argon2. Аутентификация и
-защита от CSRF вынесены в middleware: `HttpOnly`+`SameSite=Lax` cookie,
-проверка `Origin` по `allowed_origins` и синхронизатор-токен
-(`X-CSRF-Token` == токен сессии) на изменяющих запросах. Сессия скользящая —
-продлевается при активности.
+Запустите frontend с явным адресом backend:
 
-Эндпоинты:
+```sh
+cd web/tstlan-web
+BACKEND_ORIGIN=http://127.0.0.1:9000 pnpm dev
+```
 
-- `GET /health` — проверка живости.
-- `POST /auth/login` — `{login, password}` → `{login, role, csrf_token}`,
-  ставит сессионную cookie.
-- `POST /auth/logout` — отзывает сессию (нужен заголовок `X-CSRF-Token`).
-- `GET /auth/me` — текущий пользователь и csrf-токен.
+На Windows PowerShell:
+
+```powershell
+cd web/tstlan-web
+$env:BACKEND_ORIGIN = "http://127.0.0.1:9000"
+pnpm dev
+```
+
+### Нужно пересоздать локальную SQLite-базу
+
+Остановите backend, удалите `tstlan.db`, затем заново создайте администратора:
+
+```sh
+uv run python -m tstlan.tools.create_admin --login admin --password secret
+```
+
+### Порт уже занят
+
+Backend можно запустить на другом порту:
+
+```sh
+uv run tstlan --port 9000
+```
+
+После этого frontend тоже нужно направить на новый порт через
+`BACKEND_ORIGIN`.
 
 ## Разработка
 
 ```sh
-make test         # pytest
-make coverage     # pytest + coverage report (term/html/xml)
-make test-postgres # PostgreSQL migrations against docker compose
-make format       # ruff format + ruff check --fix
-make can-i-push   # ruff (format+check) + ty + pytest
-make migrate      # alembic upgrade head
+make test           # unit-тесты
+make coverage       # тесты + coverage report
+make format         # ruff format + ruff check --fix
+make can-i-push     # format check + ruff + ty + pytest
+make migrate        # alembic upgrade head
+make docs-build     # собрать HTML-документацию
 ```
 
-PostgreSQL tests use `docker-compose.test.yml` and run only on demand:
+Опциональные проверки:
 
 ```sh
-make test-postgres
-make postgres-down
+make test-integration       # TCP-интеграция с devsim
+make test-postgres          # PostgreSQL-тесты через docker compose
+make postgres-down          # остановить PostgreSQL compose
 ```
 
-Фронтенд (`web/tstlan-web`):
+## Документация
+
+Подробные инструкции лежат в `docs/`.
 
 ```sh
-pnpm lint
-pnpm typecheck
-pnpm build
+make docs-build
+make docs-open
 ```
+
+Основной файл для запуска и эксплуатации:
+`docs/operations.rst`.

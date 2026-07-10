@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TSTLAN frontend
 
-## Getting Started
+Frontend TSTLAN находится в `web/tstlan-web` и работает на Next.js.
+Он не запускается сам по себе: для полноценной работы нужен backend из корня
+репозитория.
 
-First, run the development server:
+## Первый запуск
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Из корня репозитория сначала подготовьте backend:
+
+```sh
+uv run python -m tstlan.tools.create_admin --login admin --password secret
+uv run tstlan
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Затем в отдельном терминале:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```sh
+cd web/tstlan-web
+pnpm install
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Откройте `http://localhost:3000` и войдите:
 
-## Learn More
+- login: `admin`
+- password: `secret`
 
-To learn more about Next.js, take a look at the following resources:
+## Связь с backend
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js проксирует `/api/*` на backend. По умолчанию используется
+`http://127.0.0.1:8000`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Если backend запущен на другом адресе:
 
-## Deploy on Vercel
+```sh
+BACKEND_ORIGIN=http://127.0.0.1:9000 pnpm dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+PowerShell:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```powershell
+$env:BACKEND_ORIGIN = "http://127.0.0.1:9000"
+pnpm dev
+```
+
+## Команды разработки
+
+```sh
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+`pnpm install` нужно выполнять один раз после клонирования репозитория и после
+изменения `pnpm-lock.yaml`.
