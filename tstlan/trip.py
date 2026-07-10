@@ -180,10 +180,14 @@ def build_import_plan(
         if base_config is None:
             if prod_config is None:
                 items.append(
-                    ConfigPlanItem(TripAction.CREATE, sync_id, name, ["new field config"])
+                    ConfigPlanItem(
+                        TripAction.CREATE, sync_id, name, ["new field config"]
+                    )
                 )
             elif _snapshot_values(prod_config) == _snapshot_values(field_config):
-                items.append(ConfigPlanItem(TripAction.SKIP, sync_id, name, ["already exists"]))
+                items.append(
+                    ConfigPlanItem(TripAction.SKIP, sync_id, name, ["already exists"])
+                )
             else:
                 items.append(
                     ConfigPlanItem(
@@ -198,7 +202,9 @@ def build_import_plan(
 
         if prod_config is None:
             if _snapshot_values(base_config) == _snapshot_values(field_config):
-                items.append(ConfigPlanItem(TripAction.SKIP, sync_id, name, ["deleted in prod"]))
+                items.append(
+                    ConfigPlanItem(TripAction.SKIP, sync_id, name, ["deleted in prod"])
+                )
             else:
                 items.append(
                     ConfigPlanItem(
@@ -300,9 +306,7 @@ def _write_bundle(
     path.parent.mkdir(parents=True, exist_ok=True)
     manifest = BundleManifest()
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr(
-            "manifest.json", _json_dumps(manifest.model_dump(mode="json"))
-        )
+        archive.writestr("manifest.json", _json_dumps(manifest.model_dump(mode="json")))
         archive.writestr(
             "base/device_configs.json",
             _json_dumps([item.model_dump(mode="json") for item in base]),
@@ -336,7 +340,9 @@ def _index(items: list[ConfigSnapshot], label: str) -> dict[str, ConfigSnapshot]
 
 
 def _snapshot_values(snapshot: ConfigSnapshot) -> dict[str, Any]:
-    return {field_name: getattr(snapshot, field_name) for field_name in DEVICE_CONFIG_FIELDS}
+    return {
+        field_name: getattr(snapshot, field_name) for field_name in DEVICE_CONFIG_FIELDS
+    }
 
 
 def _snapshot_from_model(config: DeviceConfig) -> ConfigSnapshot:
@@ -368,7 +374,9 @@ async def _create_config(
 
 
 async def _owner_by_login(db: AsyncSession, login: str) -> User:
-    owner = (await db.execute(select(User).where(User.login == login))).scalar_one_or_none()
+    owner = (
+        await db.execute(select(User).where(User.login == login))
+    ).scalar_one_or_none()
     if owner is None:
         raise ImportBlocked(f"owner does not exist in prod database: {login}")
     return owner

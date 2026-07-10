@@ -71,7 +71,9 @@ def test_trip_cli_import_applies_update(
     pack_path = tmp_path / "after.tslan-bundle"
     main(["trip", "export", "--database-url", prod_url, str(export_path)])
     field_dev.put(f"/configs/{field_created['id']}", {"name": "field"})
-    main(["trip", "pack", "--database-url", field_url, str(export_path), str(pack_path)])
+    main(
+        ["trip", "pack", "--database-url", field_url, str(export_path), str(pack_path)]
+    )
 
     main(["trip", "import", "--database-url", prod_url, str(pack_path)])
 

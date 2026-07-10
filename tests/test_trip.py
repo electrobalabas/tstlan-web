@@ -155,5 +155,7 @@ async def _one_config(session: AsyncSession) -> DeviceConfig:
 
 
 async def _config_names(session: AsyncSession) -> list[str]:
-    rows = (await session.execute(select(DeviceConfig.name).order_by(DeviceConfig.name))).all()
+    rows = (
+        await session.execute(select(DeviceConfig.name).order_by(DeviceConfig.name))
+    ).all()
     return [row[0] for row in rows]
