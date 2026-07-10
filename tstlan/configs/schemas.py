@@ -130,6 +130,7 @@ class ShareRequest(BaseModel):
 def _config_fields(config: DeviceConfig, access: Access) -> dict[str, Any]:
     return {
         "id": config.id,
+        "sync_id": config.sync_id,
         "name": config.name,
         "device_type": config.device_type,
         "visibility": config.visibility,
@@ -142,6 +143,7 @@ def _config_fields(config: DeviceConfig, access: Access) -> dict[str, Any]:
 
 class ConfigView(BaseModel):
     id: int
+    sync_id: str
     name: str
     device_type: str
     visibility: ConfigVisibility
