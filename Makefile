@@ -8,7 +8,7 @@ docs_build_folder := $(root)/build/docs
 postgres_compose := docker compose -f docker-compose.test.yml
 postgres_test_url ?= postgresql+psycopg://tstlan:tstlan@127.0.0.1:55432/tstlan_test
 
-.PHONY: test coverage test-integration test-all format can-i-push migrate \
+.PHONY: test coverage test-integration test-docker-integration test-all format can-i-push migrate \
 	test-postgres postgres-up postgres-down \
 	device-multimeter device-thermostat dev-server seed docs-build docs-open
 
@@ -33,6 +33,9 @@ coverage:
 
 test-integration:
 	$(uv_run) pytest -m integration
+
+test-docker-integration:
+	$(uv_run) pytest -m docker_integration -ra -q
 
 test-all:
 	$(uv_run) pytest -m ""

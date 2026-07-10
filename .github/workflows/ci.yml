@@ -32,6 +32,7 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ty check
       - run: uv run pytest -n auto --dist loadscope --timeout=60
+      - run: uv run pytest -m docker_integration -ra -q
       - run: uv run pytest -m postgres -ra -q
         env:
           TEST_POSTGRES_DATABASE_URL: postgresql+psycopg://tstlan:tstlan@127.0.0.1:5432/tstlan_test

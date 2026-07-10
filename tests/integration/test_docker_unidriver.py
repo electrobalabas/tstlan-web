@@ -1,6 +1,7 @@
 import socket
 import subprocess
 import time
+import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -27,6 +28,8 @@ HANDLE = 1
 @pytest.fixture(scope="session")
 def docker_image() -> str:
     if not _docker_available():
+        if os.environ.get("CI") == "true":
+            pytest.fail("Docker is required in CI for native unidriver tests")
         pytest.skip("Docker is required for native unidriver integration tests")
     subprocess.run(
         [
@@ -104,7 +107,7 @@ def _docker_available() -> bool:
             text=True,
             timeout=10,
         )
-    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+    except OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired:
         return False
     return True
 

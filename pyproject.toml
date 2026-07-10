@@ -37,10 +37,11 @@ pythonpath = ["."]
 testpaths = ["tests"]
 # Интеграция гоняется только локально (`make test-integration`); дефолтный
 # прогон и CI берут лишь юнит-тесты.
-addopts = "-m 'not integration and not postgres'"
+addopts = "-m 'not integration and not postgres and not docker_integration'"
 markers = [
     "integration: обмен с процессом-прибором devsim по реальному TCP-сокету (локально, не в CI)",
     "postgres: PostgreSQL-backed tests that require TEST_POSTGRES_DATABASE_URL",
+    "docker_integration: Docker-backed native unidriver integration tests",
 ]
 
 [tool.coverage.run]
