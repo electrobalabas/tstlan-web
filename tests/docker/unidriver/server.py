@@ -3,6 +3,7 @@ import ctypes
 import json
 import socketserver
 import threading
+import traceback
 from pathlib import Path
 from typing import Any, cast
 
@@ -91,6 +92,10 @@ class DeviceServer(socketserver.ThreadingTCPServer):
         self.io = io
         self.lock = threading.Lock()
 
+    def handle_error(self, request: object, client_address: object) -> None:
+        print(f"handler error from {client_address}", flush=True)
+        traceback.print_exc()
+
 
 def _apply(io: NativeUnidriverIO, request: dict[str, Any]) -> dict[str, Any]:
     op = request["op"]
@@ -116,6 +121,7 @@ def main() -> None:
     args = parser.parse_args()
 
     server = DeviceServer((args.host, args.port), NativeUnidriverIO(args.library))
+    print(f"listening {args.host}:{args.port}", flush=True)
     server.serve_forever()
 
 

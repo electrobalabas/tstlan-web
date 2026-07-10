@@ -1,5 +1,4 @@
 import os
-import socket
 import subprocess
 import time
 from collections.abc import Callable, Iterator
@@ -58,8 +57,11 @@ def device_port(docker_image: str) -> Iterator[int]:
     container_id = proc.stdout.strip()
     try:
         port = _published_port(container_id)
-        _wait_for_port(port)
+        _wait_for_container(container_id)
         yield port
+    except Exception:
+        logs = _docker_logs(container_id)
+        pytest.fail(f"Docker native unidriver test failed\n\ncontainer logs:\n{logs}")
     finally:
         subprocess.run(["docker", "rm", "-f", container_id], check=False)
 
@@ -141,12 +143,34 @@ def _published_port(container_id: str) -> int:
     raise RuntimeError(f"container {container_id} did not publish port 9000")
 
 
-def _wait_for_port(port: int) -> None:
+def _wait_for_container(container_id: str) -> None:
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
-                return
-        except OSError:
-            time.sleep(0.1)
-    raise RuntimeError(f"Docker native unidriver did not listen on {port}")
+        logs = _docker_logs(container_id)
+        if "listening" in logs:
+            return
+        state = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", container_id],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if state != "true":
+            raise RuntimeError(
+                f"Docker native unidriver exited before listening\n\n{logs}"
+            )
+        time.sleep(0.1)
+    raise RuntimeError(
+        "Docker native unidriver did not report readiness\n\n"
+        f"{_docker_logs(container_id)}"
+    )
+
+
+def _docker_logs(container_id: str) -> str:
+    proc = subprocess.run(
+        ["docker", "logs", container_id],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout + proc.stderr
