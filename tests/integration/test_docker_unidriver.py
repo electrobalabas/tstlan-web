@@ -1,7 +1,7 @@
+import os
 import socket
 import subprocess
 import time
-import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -31,18 +31,18 @@ def docker_image() -> str:
         if os.environ.get("CI") == "true":
             pytest.fail("Docker is required in CI for native unidriver tests")
         pytest.skip("Docker is required for native unidriver integration tests")
-    subprocess.run(
+    _docker_build(
         [
             "docker",
             "build",
+            "--progress",
+            "plain",
             "-t",
             IMAGE,
             "-f",
             "tests/docker/unidriver/Dockerfile",
             ".",
         ],
-        cwd=REPO_ROOT,
-        check=True,
     )
     return IMAGE
 
@@ -110,6 +110,19 @@ def _docker_available() -> bool:
     except OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired:
         return False
     return True
+
+
+def _docker_build(command: list[str]) -> None:
+    proc = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        pytest.fail(
+            f"docker build failed\n\nstdout:\n{proc.stdout}\n\nstderr:\n{proc.stderr}"
+        )
 
 
 def _published_port(container_id: str) -> int:
